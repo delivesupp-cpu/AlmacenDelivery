@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Caja - Despensa</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .total {
+            font-size: 28px;
+            font-weight: bold;
+            text-align: right;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #333;
+        }
+        .search-product {
+            position: relative;
+        }
+        .search-results {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            width: 100%;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .search-result-item {
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .search-result-item:hover {
+            background: #f5f5f5;
+        }
+        .quantity-input {
+            width: 80px;
+            text-align: center;
+        }
+        .cart-total-item {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu"></div>
+    <div class="container">
+        <h1>💰 Caja Registradora</h1>
+        
+        <div class="card">
+            <h3>🛍️ Agregar Producto</h3>
+            <div class="search-product">
+                <input type="text" id="productSearch" placeholder="Buscar producto..." autocomplete="off" style="font-size:16px;">
+                <div id="searchResults" class="search-results" style="display:none;"></div>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center;">
+                <input type="number" id="quantity" placeholder="Cantidad" value="1" style="width: 100px;">
+                <button id="addToCartBtn" class="btn" disabled style="flex:1;">➕ Agregar al carrito</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h3>🛒 Carrito de Compras</h3>
+            <div id="cartItems">
+                <div style="color:#999; text-align:center; padding:20px;">No hay productos en el carrito</div>
+            </div>
+            <div class="total">
+                Total: $<span id="totalAmount">0.00</span>
+            </div>
+            <button id="checkoutBtn" class="btn btn-success" style="width:100%; margin-top:15px; padding:14px;">✅ Finalizar Venta</button>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        let cart = [];
+        let selectedProduct = null;
+        let searchTimeout;
+        
+        async function searchProducts() {
+            const term = document.getElementById('productSearch').value;
+            if (term.length < 2) {
+                document.getElementById('searchResults').style.display = 'none';
+                return;
+            }
+            
+            const { data } = await supabase
+                .from('products')
+                .select(`
+                    id, name, brand, unit,
+                    prices(price, providers(name))
+                `)
+                .ilike('name', `%${term}%`)
+                .limit(10);
+            
+            const resultsDiv = document.getElementById('searchResults');
+            if (data && data.length > 0) {
+                resultsDiv.innerHTML = data.map(p => {
+                    const bestPrice = p.prices?.length > 0 ? Math.min(...p.prices.map(pr => pr.price)) : null;
+                    return `
+                        <div class="search-result-item" onclick="selectProduct(${p.id}, '${p.name} ${p.brand}', ${bestPrice || 0}, '${p.unit || 'unidad'}')">
+                            <strong>${p.name} - ${p.brand}</strong>
+                            ${bestPrice ? `<br>💰 $${bestPrice} (${p.unit || 'unidad'})` : '<br>⚠️ Sin precio disponible'}
+                        </div>
+                    `;
+                }).join('');
+                resultsDiv.style.display = 'block';
+            } else {
+                resultsDiv.style.display = 'none';
+            }
+        }
+        
+        function selectProduct(id, name, price, unit) {
+            if (price === 0) {
+                alert('Este producto no tiene precio cargado');
+                return;
+            }
+            selectedProduct = { id, name, price, unit };
+            document.getElementById('productSearch').value = name;
+            document.getElementById('searchResults').style.display = 'none';
+            document.getElementById('addToCartBtn').disabled = false;
+        }
+        
+        function addToCart() {
+            if (!selectedProduct || !selectedProduct.price) return;
+            
+            const quantity = parseInt(document.getElementById('quantity').value) || 1;
+            
+            cart.push({
+                ...selectedProduct,
+                quantity,
+                subtotal: selectedProduct.price * quantity
+            });
+            
+            updateCartDisplay();
+            
+            selectedProduct = null;
+            document.getElementById('productSearch').value = '';
+            document.getElementById('quantity').value = '1';
+            document.getElementById('addToCartBtn').disabled = true;
+        }
+        
+        function updateCartDisplay() {
+            const container = document.getElementById('cartItems');
+            let total = 0;
+            
+            if (cart.length === 0) {
+                container.innerHTML = '<div style="color:#999; text-align:center; padding:20px;">No hay productos en el carrito</div>';
+                document.getElementById('totalAmount').innerText = '0.00';
+                return;
+            }
+            
+            container.innerHTML = cart.map((item, index) => {
+                total += item.subtotal;
+                return `
+                    <div class="cart-item">
+                        <div style="flex:2">
+                            <strong>${item.name}</strong><br>
+                            <span style="font-size:12px; color:#666;">$${item.price} x ${item.quantity} ${item.unit}</span>
+                        </div>
+                        <div style="text-align:right;">
+                            <strong>$${item.subtotal.toFixed(2)}</strong>
+                            <button onclick="removeFromCart(${index})" class="btn btn-danger" style="padding:5px 10px; margin-left:10px;">✖️</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('totalAmount').innerText = total.toFixed(2);
+        }
+        
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            updateCartDisplay();
+        }
+        
+        function checkout() {
+            if (cart.length === 0) {
+                alert('No hay productos en el carrito');
+                return;
+            }
+            
+            const total = cart.reduce((sum, item) => sum + item.subtotal, 0);
+            const itemsList = cart.map(item => `${item.name} x${item.quantity}`).join('\n');
+            
+            if (confirm(`📋 Resumen de venta:\n\n${itemsList}\n\n💰 Total: $${total.toFixed(2)}\n\n¿Confirmar venta?`)) {
+                alert(`✅ Venta finalizada\n\nTotal: $${total.toFixed(2)}\n\n¡Gracias por su compra!`);
+                cart = [];
+                updateCartDisplay();
+            }
+        }
+        
+        document.getElementById('productSearch').addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(searchProducts, 300);
+        });
+        document.getElementById('addToCartBtn').addEventListener('click', addToCart);
+        document.getElementById('checkoutBtn').addEventListener('click', checkout);
+        
+        checkAccess().then(() => {
+            buildMenu();
+        });
+    </script>
+</body>
+</html>

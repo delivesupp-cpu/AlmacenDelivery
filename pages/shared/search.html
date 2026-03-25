@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Búsqueda Avanzada</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .result-item {
+            background: white;
+            padding: 16px;
+            margin: 12px 0;
+            border-radius: 12px;
+            cursor: pointer;
+            border: 1px solid #e9ecef;
+            transition: all 0.2s;
+        }
+        .result-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        .product-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1a1a2e;
+        }
+        .price-comparison {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .price-badge {
+            background: #e9ecef;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+        }
+        .best-price {
+            background: #28a745;
+            color: white;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 24px;
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+        .close {
+            float: right;
+            cursor: pointer;
+            font-size: 28px;
+            font-weight: bold;
+            color: #999;
+        }
+        .close:hover {
+            color: #333;
+        }
+        .search-input {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 30px;
+            margin-bottom: 20px;
+            box-sizing: border-box;
+        }
+        .provider-detail {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .provider-detail:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu"></div>
+    <div class="container">
+        <h1>🔍 Búsqueda Avanzada</h1>
+        
+        <input type="text" id="searchInput" class="search-input" placeholder="Buscar producto...">
+        
+        <div id="results">
+            <div class="loading" style="text-align:center; padding:40px; color:#999;">Escribe para buscar</div>
+        </div>
+    </div>
+    
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        let searchTimeout;
+        
+        async function searchProducts() {
+            const term = document.getElementById('searchInput').value;
+            if (term.length < 2) {
+                document.getElementById('results').innerHTML = '<div class="loading" style="text-align:center; padding:40px; color:#999;">Escribe al menos 2 caracteres</div>';
+                return;
+            }
+            
+            const { data } = await supabase
+                .from('products')
+                .select(`
+                    id, name, brand, unit,
+                    categories(name),
+                    prices(price, updated_at, providers(id, name, whatsapp, email, website))
+                `)
+                .ilike('name', `%${term}%`)
+                .limit(30);
+            
+            displayResults(data || []);
+        }
+        
+        function displayResults(products) {
+            const container = document.getElementById('results');
+            if (products.length === 0) {
+                container.innerHTML = '<div class="card">📭 No se encontraron productos</div>';
+                return;
+            }
+            
+            container.innerHTML = products.map(p => {
+                const prices = p.prices || [];
+                const bestPrice = prices.length > 0 ? Math.min(...prices.map(pr => pr.price)) : null;
+                
+                return `
+                    <div class="result-item" onclick="showProductDetail(${p.id})">
+                        <div class="product-name">${p.name} - ${p.brand}</div>
+                        <div style="color:#667eea; font-size:13px; margin-top:5px;">${p.categories?.name} | ${p.unit || 'unidad'}</div>
+                        <div class="price-comparison">
+                            ${prices.slice(0, 3).map(pr => `
+                                <div class="price-badge ${pr.price === bestPrice ? 'best-price' : ''}">
+                                    ${pr.providers?.name}: $${pr.price}
+                                </div>
+                            `).join('')}
+                            ${prices.length > 3 ? `<div class="price-badge">+${prices.length - 3} más</div>` : ''}
+                        </div>
+                        <div style="font-size:12px; color:#999; margin-top:8px;">📊 ${prices.length} proveedores cargados</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        async function showProductDetail(productId) {
+            const { data } = await supabase
+                .from('products')
+                .select(`
+                    id, name, brand, unit,
+                    categories(name),
+                    prices(price, updated_at, updated_by, providers(id, name, whatsapp, email, website))
+                `)
+                .eq('id', productId)
+                .single();
+            
+            if (data) {
+                const sortedPrices = [...(data.prices || [])].sort((a,b) => a.price - b.price);
+                const modalBody = document.getElementById('modalBody');
+                modalBody.innerHTML = `
+                    <h2 style="margin-bottom:10px;">${data.name} - ${data.brand}</h2>
+                    <p style="color:#667eea; margin-bottom:15px;">📂 ${data.categories?.name} | 📦 ${data.unit || 'unidad'}</p>
+                    <h3 style="margin:20px 0 10px 0;">💰 Precios por proveedor</h3>
+                    ${sortedPrices.map((pr, idx) => `
+                        <div class="provider-detail" style="background: ${idx === 0 ? '#e8f5e9' : 'transparent'};">
+                            <strong>🏪 ${pr.providers?.name}</strong>
+                            <div style="font-size:20px; font-weight:bold; color:#28a745; margin:8px 0;">$${pr.price.toFixed(2)}</div>
+                            <div style="font-size:12px; color:#666;">📅 Actualizado: ${new Date(pr.updated_at).toLocaleString()}</div>
+                            ${pr.providers?.whatsapp ? `<div style="font-size:12px; margin-top:5px;">📱 WhatsApp: ${pr.providers.whatsapp}</div>` : ''}
+                            ${pr.providers?.email ? `<div style="font-size:12px;">📧 Email: ${pr.providers.email}</div>` : ''}
+                            ${pr.providers?.website ? `<div style="font-size:12px;">🌐 Web: ${pr.providers.website}</div>` : ''}
+                        </div>
+                    `).join('')}
+                    ${data.prices?.length === 0 ? '<div style="color:#999;">Sin precios cargados</div>' : ''}
+                `;
+                document.getElementById('modal').style.display = 'flex';
+            }
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+        
+        checkAccess().then(() => {
+            buildMenu();
+        });
+        
+        document.getElementById('searchInput').addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(searchProducts, 300);
+        });
+    </script>
+</body>
+</html>

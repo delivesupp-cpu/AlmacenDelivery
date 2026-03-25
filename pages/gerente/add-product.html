@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=yes">
+    <title>Agregar Producto</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .unit-buttons {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .unit-btn {
+            flex: 1;
+            padding: 10px;
+            background: #e9ecef;
+            color: #333;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .unit-btn:hover {
+            background: #dee2e6;
+        }
+        .suggestions-list {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            max-height: 150px;
+            overflow-y: auto;
+            position: absolute;
+            width: calc(100% - 2px);
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .suggestion-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+        }
+        .suggestion-item:hover {
+            background: #f0f0f0;
+        }
+        .relative {
+            position: relative;
+        }
+        .price-indicator {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .form-card {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+    </style>
+</head>
+<body>
+    <div id="menu"></div>
+    <div class="container">
+        <h1>➕ Agregar Producto</h1>
+        
+        <div class="form-card">
+            <form id="productForm">
+                <div class="form-group relative">
+                    <label>📦 Producto *</label>
+                    <input type="text" id="productName" placeholder="Ej: Arroz" required autocomplete="off">
+                    <div id="productSuggestions" class="suggestions-list" style="display:none;"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label>🏷️ Marca *</label>
+                    <input type="text" id="brand" placeholder="Ej: Marolio" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>📂 Categoría *</label>
+                    <select id="category" required></select>
+                </div>
+                
+                <div class="form-group">
+                    <label>⚖️ Unidad de medida *</label>
+                    <input type="text" id="unit" placeholder="kg, litros, unidades, gramos" required>
+                    <div class="unit-buttons">
+                        <button type="button" class="unit-btn" onclick="setUnit('kg')">kg</button>
+                        <button type="button" class="unit-btn" onclick="setUnit('litros')">litros</button>
+                        <button type="button" class="unit-btn" onclick="setUnit('unidades')">unidades</button>
+                        <button type="button" class="unit-btn" onclick="setUnit('gramos')">gramos</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>🏪 Proveedor *</label>
+                    <select id="provider" required></select>
+                </div>
+                
+                <div class="form-group">
+                    <label>💰 Precio $ *</label>
+                    <input type="number" id="price" step="0.01" placeholder="0.00" required>
+                    <div id="priceIndicator" class="price-indicator"></div>
+                </div>
+                
+                <button type="submit" class="btn btn-success" style="width:100%;">💾 Guardar Producto</button>
+            </form>
+            <div id="message"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        let existingProducts = [];
+        
+        async function loadCategories() {
+            const { data } = await supabase.from('categories').select('id, name').order('name');
+            const select = document.getElementById('category');
+            select.innerHTML = '<option value="">Seleccionar categoría</option>' + 
+                data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        }
+        
+        async function loadProviders() {
+            const { data } = await supabase.from('providers').select('id, name').order('name');
+            const select = document.getElementById('provider');
+            select.innerHTML = '<option value="">Seleccionar proveedor</option>' + 
+                data.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        }
+        
+        async function loadExistingProducts() {
+            const { data } = await supabase.from('products').select('name, brand');
+            existingProducts = data || [];
+        }
+        
+        function setUnit(unit) {
+            document.getElementById('unit').value = unit;
+        }
+        
+        async function suggestProduct() {
+            const productName = document.getElementById('productName').value.toLowerCase();
+            if (productName.length < 2) {
+                document.getElementById('productSuggestions').style.display = 'none';
+                return;
+            }
+            
+            const matches = existingProducts
+                .filter(p => p.name.toLowerCase().includes(productName))
+                .slice(0, 5);
+            
+            const suggestionsDiv = document.getElementById('productSuggestions');
+            if (matches.length > 0) {
+                suggestionsDiv.innerHTML = matches.map(p => 
+                    `<div class="suggestion-item" onclick="selectProduct('${p.name}', '${p.brand}')">
+                        <strong>${p.name}</strong> - ${p.brand}
+                    </div>`
+                ).join('');
+                suggestionsDiv.style.display = 'block';
+            } else {
+                suggestionsDiv.style.display = 'none';
+            }
+        }
+        
+        function selectProduct(name, brand) {
+            document.getElementById('productName').value = name;
+            document.getElementById('brand').value = brand;
+            document.getElementById('productSuggestions').style.display = 'none';
+            suggestUnitFromHistory(name, brand);
+        }
+        
+        async function suggestUnitFromHistory(productName, brand) {
+            const { data } = await supabase
+                .from('unit_suggestions')
+                .select('suggested_unit')
+                .eq('product_name', productName)
+                .eq('brand', brand)
+                .order('times_used', { ascending: false })
+                .limit(1);
+            
+            if (data && data.length > 0) {
+                document.getElementById('unit').value = data[0].suggested_unit;
+            }
+        }
+        
+        async function comparePrice() {
+            const price = parseFloat(document.getElementById('price').value);
+            const productName = document.getElementById('productName').value;
+            const brand = document.getElementById('brand').value;
+            const providerId = document.getElementById('provider').value;
+            
+            if (!productName || !brand || !price || !providerId) return;
+            
+            const { data: product } = await supabase
+                .from('products')
+                .select('id')
+                .eq('name', productName)
+                .eq('brand', brand)
+                .single();
+            
+            if (product) {
+                const { data: prices } = await supabase
+                    .from('prices')
+                    .select('price, providers(name)')
+                    .eq('product_id', product.id)
+                    .neq('provider_id', providerId);
+                
+                if (prices && prices.length > 0) {
+                    const avg = prices.reduce((a,b) => a + b.price, 0) / prices.length;
+                    const diff = ((price - avg) / avg) * 100;
+                    
+                    const indicator = document.getElementById('priceIndicator');
+                    if (diff > 10) {
+                        indicator.className = 'price-indicator price-up';
+                        indicator.innerHTML = `⚠️ ${diff.toFixed(1)}% más caro que el promedio ↓`;
+                    } else if (diff < -10) {
+                        indicator.className = 'price-indicator price-down';
+                        indicator.innerHTML = `✓ ${Math.abs(diff).toFixed(1)}% más barato que el promedio ↑`;
+                    } else {
+                        indicator.innerHTML = `ℹ️ Precio dentro del promedio (±${Math.abs(diff).toFixed(1)}%)`;
+                    }
+                } else {
+                    document.getElementById('priceIndicator').innerHTML = '';
+                }
+            }
+        }
+        
+        async function saveProduct(event) {
+            event.preventDefault();
+            
+            const productName = document.getElementById('productName').value.trim();
+            const brand = document.getElementById('brand').value.trim();
+            const categoryId = document.getElementById('category').value;
+            const unit = document.getElementById('unit').value.trim();
+            const providerId = document.getElementById('provider').value;
+            const price = parseFloat(document.getElementById('price').value);
+            const userId = localStorage.getItem('userId');
+            
+            if (!productName || !brand || !categoryId || !unit || !providerId || !price) {
+                document.getElementById('message').innerHTML = '<div class="error-msg">❌ Completa todos los campos</div>';
+                return;
+            }
+            
+            let productId;
+            let { data: product } = await supabase
+                .from('products')
+                .select('id')
+                .eq('name', productName)
+                .eq('brand', brand)
+                .single();
+            
+            if (!product) {
+                const { data: newProduct, error: insertError } = await supabase
+                    .from('products')
+                    .insert({ name: productName, brand: brand, category_id: categoryId, unit: unit })
+                    .select()
+                    .single();
+                
+                if (insertError) {
+                    document.getElementById('message').innerHTML = `<div class="error-msg">❌ Error: ${insertError.message}</div>`;
+                    return;
+                }
+                productId = newProduct.id;
+                
+                await supabase
+                    .from('unit_suggestions')
+                    .upsert({
+                        product_name: productName,
+                        brand: brand,
+                        suggested_unit: unit,
+                        times_used: 1
+                    }, { onConflict: 'product_name,brand' });
+            } else {
+                productId = product.id;
+            }
+            
+            const { error: priceError } = await supabase
+                .from('prices')
+                .insert({
+                    product_id: productId,
+                    provider_id: providerId,
+                    price: price,
+                    updated_by: userId
+                });
+            
+            if (!priceError) {
+                document.getElementById('message').innerHTML = '<div class="success">✓ Producto guardado correctamente</div>';
+                document.getElementById('productForm').reset();
+                setTimeout(() => document.getElementById('message').innerHTML = '', 3000);
+                loadExistingProducts();
+            } else {
+                document.getElementById('message').innerHTML = `<div class="error-msg">❌ Error: ${priceError.message}</div>`;
+            }
+        }
+        
+        document.getElementById('productName').addEventListener('input', suggestProduct);
+        document.getElementById('price').addEventListener('input', comparePrice);
+        document.getElementById('provider').addEventListener('change', comparePrice);
+        document.getElementById('productForm').addEventListener('submit', saveProduct);
+        
+        checkAccess().then(() => {
+            buildMenu();
+            loadCategories();
+            loadProviders();
+            loadExistingProducts();
+        });
+    </script>
+</body>
+</html>

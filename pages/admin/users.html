@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gestionar Usuarios</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .user-item {
+            background: white;
+            padding: 15px 20px;
+            margin: 10px 0;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .user-info {
+            flex: 1;
+        }
+        .user-email {
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .user-role {
+            font-size: 13px;
+            color: #667eea;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu"></div>
+    <div class="container">
+        <h1>👥 Gestionar Usuarios</h1>
+        
+        <div class="card">
+            <h3>➕ Agregar Nuevo Usuario</h3>
+            <form id="userForm">
+                <div class="form-group">
+                    <label>📧 Email</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label>🔒 Contraseña</label>
+                    <input type="password" id="password" required>
+                </div>
+                <div class="form-group">
+                    <label>👑 Rol</label>
+                    <select id="roleId" required></select>
+                </div>
+                <button type="submit" class="btn btn-success">➕ Agregar Usuario</button>
+            </form>
+            <div id="message"></div>
+        </div>
+        
+        <h2>📋 Usuarios Existentes</h2>
+        <div id="usersList">
+            <div class="loading">Cargando...</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        async function loadRoles() {
+            const { data } = await supabase.from('roles').select('id, name');
+            const select = document.getElementById('roleId');
+            select.innerHTML = data.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+        }
+        
+        async function loadUsers() {
+            const { data } = await supabase
+                .from('users')
+                .select('id, email, role_id, roles(name)')
+                .order('created_at');
+            
+            const container = document.getElementById('usersList');
+            if (data && data.length > 0) {
+                container.innerHTML = data.map(u => `
+                    <div class="user-item">
+                        <div class="user-info">
+                            <div class="user-email">📧 ${u.email}</div>
+                            <div class="user-role">🎭 Rol: ${u.roles?.name}</div>
+                        </div>
+                        ${u.email !== 'admin@despensa.com' ? `
+                            <button onclick="deleteUser('${u.id}')" class="btn btn-danger" style="padding:8px 16px;">🗑️ Eliminar</button>
+                        ` : '<span style="color:#999;">Admin principal</span>'}
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<div class="card">📭 No hay usuarios registrados</div>';
+            }
+        }
+        
+        async function addUser(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const roleId = document.getElementById('roleId').value;
+            
+            if (!email || !password) {
+                document.getElementById('message').innerHTML = '<div class="error-msg">❌ Completa todos los campos</div>';
+                return;
+            }
+            
+            const { error } = await supabase
+                .from('users')
+                .insert({ email, password, role_id: roleId });
+            
+            if (!error) {
+                document.getElementById('message').innerHTML = '<div class="success">✓ Usuario agregado correctamente</div>';
+                document.getElementById('userForm').reset();
+                loadUsers();
+                setTimeout(() => document.getElementById('message').innerHTML = '', 3000);
+            } else {
+                document.getElementById('message').innerHTML = `<div class="error-msg">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function deleteUser(id) {
+            if (confirm('¿Eliminar este usuario?')) {
+                const { error } = await supabase.from('users').delete().eq('id', id);
+                if (!error) {
+                    loadUsers();
+                } else {
+                    alert('Error: ' + error.message);
+                }
+            }
+        }
+        
+        document.getElementById('userForm').addEventListener('submit', addUser);
+        
+        checkAccess().then(() => {
+            buildMenu();
+            loadRoles();
+            loadUsers();
+        });
+    </script>
+</body>
+</html>

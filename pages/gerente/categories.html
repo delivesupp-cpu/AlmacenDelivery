@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Gestionar Categorías</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .category-item {
+            background: white;
+            padding: 15px 20px;
+            margin: 10px 0;
+            border-radius: 12px;
+            border: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .category-name {
+            font-size: 16px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu"></div>
+    <div class="container">
+        <h1>📂 Gestionar Categorías</h1>
+        
+        <div class="card">
+            <h3>➕ Agregar Nueva Categoría</h3>
+            <form id="categoryForm">
+                <input type="text" id="categoryName" placeholder="Nombre de categoría" required>
+                <button type="submit" class="btn btn-success" style="margin-top:10px;">Agregar</button>
+            </form>
+            <div id="message"></div>
+        </div>
+        
+        <h2>📋 Categorías Existentes</h2>
+        <div id="categoriesList">
+            <div class="loading">Cargando...</div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        async function loadCategories() {
+            const { data } = await supabase.from('categories').select('*').order('name');
+            const container = document.getElementById('categoriesList');
+            
+            if (data && data.length > 0) {
+                container.innerHTML = data.map(c => `
+                    <div class="category-item">
+                        <span class="category-name">📁 ${c.name}</span>
+                        <button onclick="deleteCategory(${c.id})" class="btn btn-danger" style="padding:6px 12px;">🗑️ Eliminar</button>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<div class="card">📭 No hay categorías cargadas</div>';
+            }
+        }
+        
+        async function addCategory(event) {
+            event.preventDefault();
+            
+            const name = document.getElementById('categoryName').value.trim();
+            
+            if (!name) {
+                document.getElementById('message').innerHTML = '<div class="error-msg">❌ El nombre es obligatorio</div>';
+                return;
+            }
+            
+            const { error } = await supabase.from('categories').insert({ name });
+            
+            if (!error) {
+                document.getElementById('message').innerHTML = '<div class="success">✓ Categoría agregada</div>';
+                document.getElementById('categoryName').value = '';
+                loadCategories();
+                setTimeout(() => document.getElementById('message').innerHTML = '', 3000);
+            } else {
+                document.getElementById('message').innerHTML = `<div class="error-msg">❌ Error: ${error.message}</div>`;
+            }
+        }
+        
+        async function deleteCategory(id) {
+            if (confirm('¿Eliminar esta categoría?')) {
+                const { error } = await supabase.from('categories').delete().eq('id', id);
+                if (!error) {
+                    loadCategories();
+                } else {
+                    alert('Error: ' + error.message);
+                }
+            }
+        }
+        
+        document.getElementById('categoryForm').addEventListener('submit', addCategory);
+        
+        checkAccess().then(() => {
+            buildMenu();
+            loadCategories();
+        });
+    </script>
+</body>
+</html>
