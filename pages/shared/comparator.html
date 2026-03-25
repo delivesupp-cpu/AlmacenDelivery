@@ -2,103 +2,52 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
-    <title>Comparador de Precios</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Comparador - AlmacenDelivery</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        .product-card {
-            background: white;
-            padding: 16px;
-            margin: 12px 0;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            border: 1px solid #e9ecef;
-        }
-        .product-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: #1a1a2e;
-        }
-        .product-category {
-            font-size: 13px;
-            color: #667eea;
-            margin-bottom: 12px;
-        }
-        .price-list {
-            margin-top: 12px;
-        }
-        .price-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #f0f0f0;
-        }
-        .provider-name {
-            font-weight: 600;
-            color: #555;
-        }
-        .price-value {
-            color: #28a745;
-            font-weight: bold;
-            font-size: 16px;
-        }
-        .best-price-badge {
-            background: #28a745;
-            color: white;
-            font-size: 11px;
-            padding: 2px 6px;
-            border-radius: 12px;
-            margin-left: 8px;
-        }
-        .update-date {
-            font-size: 11px;
-            color: #999;
-            margin-top: 2px;
-        }
         .search-box {
             width: 100%;
-            padding: 14px;
-            font-size: 16px;
-            border: 1px solid #ddd;
-            border-radius: 12px;
+            padding: 12px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 40px;
+            font-size: 14px;
             margin-bottom: 20px;
-            box-sizing: border-box;
         }
         .category-filter {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 8px;
+            margin-bottom: 24px;
         }
         .category-btn {
-            padding: 8px 18px;
-            background: #e9ecef;
+            padding: 6px 16px;
+            background: #f1f5f9;
             border: none;
             border-radius: 30px;
+            font-size: 13px;
             cursor: pointer;
-            font-size: 14px;
+            transition: all 0.2s;
         }
         .category-btn.active {
-            background: #667eea;
+            background: #0f172a;
             color: white;
         }
     </style>
 </head>
 <body>
-    <div id="menu"></div>
-    <div class="container">
-        <h1>🛒 Comparador de Precios</h1>
+    <div class="main-content">
+        <h1 style="margin-bottom: 8px;">🔍 Comparador de Precios</h1>
+        <p style="color: #64748b; margin-bottom: 24px;">Compará precios entre proveedores</p>
         
-        <input type="text" id="search" class="search-box" placeholder="🔍 Buscar producto o marca...">
+        <input type="text" id="search" class="search-box" placeholder="Buscar producto o marca...">
         
         <div class="category-filter" id="categoryFilter">
             <button class="category-btn active" data-category="all">Todos</button>
         </div>
         
         <div id="results">
-            <div class="loading">Cargando productos...</div>
+            <div style="text-align:center; padding:40px; color:#64748b;">Cargando productos...</div>
         </div>
     </div>
 
@@ -111,102 +60,62 @@
         let selectedCategory = 'all';
         
         async function loadCategories() {
-            const { data } = await supabase.from('categories').select('id, name').order('name');
+            const { data } = await window.supabaseClient.from('categories').select('id, name').order('name');
             categories = data || [];
-            
             const filterDiv = document.getElementById('categoryFilter');
-            const categoryButtons = categories.map(cat => `
-                <button class="category-btn" data-category="${cat.id}" onclick="filterByCategory(${cat.id})">${cat.name}</button>
-            `).join('');
-            
-            filterDiv.innerHTML = '<button class="category-btn active" data-category="all" onclick="filterByCategory(\'all\')">📦 Todos</button>' + categoryButtons;
+            filterDiv.innerHTML = '<button class="category-btn active" data-category="all" onclick="filterByCategory(\'all\')">Todos</button>' + 
+                categories.map(cat => `<button class="category-btn" data-category="${cat.id}" onclick="filterByCategory(${cat.id})">${cat.name}</button>`).join('');
         }
         
         async function loadProducts() {
-            const { data, error } = await supabase
+            const { data } = await window.supabaseClient
                 .from('products')
-                .select(`
-                    id, 
-                    name, 
-                    brand, 
-                    unit,
-                    category_id,
-                    categories(name),
-                    prices(
-                        price, 
-                        updated_at, 
-                        provider_id,
-                        providers(name, whatsapp)
-                    )
-                `)
+                .select(`id, name, brand, unit, category_id, categories(name), prices(price, updated_at, provider_id, providers(name))`)
                 .order('name');
-            
             if (data) {
                 allProducts = data;
                 filterProducts();
-            } else {
-                document.getElementById('results').innerHTML = '<div class="card">Error al cargar productos</div>';
             }
         }
         
         function filterProducts() {
             let filtered = allProducts;
-            
             if (selectedCategory !== 'all') {
                 filtered = filtered.filter(p => p.category_id === selectedCategory);
             }
-            
             const searchTerm = document.getElementById('search').value.toLowerCase();
             if (searchTerm) {
-                filtered = filtered.filter(p => 
-                    p.name.toLowerCase().includes(searchTerm) || 
-                    p.brand.toLowerCase().includes(searchTerm)
-                );
+                filtered = filtered.filter(p => p.name.toLowerCase().includes(searchTerm) || p.brand.toLowerCase().includes(searchTerm));
             }
-            
             displayProducts(filtered);
         }
         
         function displayProducts(products) {
             const container = document.getElementById('results');
-            
             if (products.length === 0) {
-                container.innerHTML = '<div class="card">📭 No se encontraron productos</div>';
+                container.innerHTML = '<div class="card" style="text-align:center;">📭 No se encontraron productos</div>';
                 return;
             }
-            
             container.innerHTML = products.map(p => {
                 const prices = p.prices || [];
                 const sortedPrices = [...prices].sort((a,b) => a.price - b.price);
                 const lowestPrice = sortedPrices[0]?.price;
-                const oldestDate = sortedPrices[0]?.updated_at;
-                const daysSinceUpdate = oldestDate ? Math.floor((new Date() - new Date(oldestDate)) / (1000 * 60 * 60 * 24)) : null;
-                
                 return `
                     <div class="product-card">
-                        <div class="product-title">
-                            ${p.name} - ${p.brand}
-                            <span style="font-size:12px; color:#888; font-weight:normal;"> (${p.unit || 'unidad'})</span>
-                        </div>
-                        <div class="product-category">
-                            📂 ${p.categories?.name || 'Sin categoría'}
-                            ${daysSinceUpdate > 30 ? `<span style="color:#ff9800; margin-left:10px;">⚠️ Precio antiguo (${daysSinceUpdate} días)</span>` : ''}
-                        </div>
+                        <div class="product-title">${p.name} - ${p.brand} <span style="font-size:12px; color:#64748b;">(${p.unit || 'unidad'})</span></div>
+                        <div class="product-category">📂 ${p.categories?.name || 'Sin categoría'}</div>
                         <div class="price-list">
                             ${sortedPrices.map(pr => `
                                 <div class="price-item">
-                                    <div>
-                                        <span class="provider-name">🏪 ${pr.providers?.name}</span>
-                                        <div class="update-date">📅 ${new Date(pr.updated_at).toLocaleDateString()}</div>
-                                    </div>
+                                    <span class="provider-name">🏪 ${pr.providers?.name}</span>
                                     <div>
                                         <span class="price-value">$${pr.price.toFixed(2)}</span>
-                                        ${pr.price === lowestPrice && sortedPrices.length > 1 ? '<span class="best-price-badge">Mejor precio</span>' : ''}
+                                        ${pr.price === lowestPrice && sortedPrices.length > 1 ? '<span style="background:#10b981; color:white; font-size:10px; padding:2px 6px; border-radius:20px; margin-left:8px;">Mejor</span>' : ''}
+                                        <div style="font-size:10px; color:#94a3b8;">${new Date(pr.updated_at).toLocaleDateString()}</div>
                                     </div>
                                 </div>
                             `).join('')}
                         </div>
-                        ${prices.length === 0 ? '<div style="color:#999; text-align:center; padding:10px;">Sin precios cargados</div>' : ''}
                     </div>
                 `;
             }).join('');
@@ -214,14 +123,8 @@
         
         function filterByCategory(categoryId) {
             selectedCategory = categoryId;
-            
-            document.querySelectorAll('.category-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.getAttribute('data-category') == categoryId) {
-                    btn.classList.add('active');
-                }
-            });
-            
+            document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
             filterProducts();
         }
         
@@ -230,7 +133,6 @@
             loadCategories();
             loadProducts();
         });
-        
         document.getElementById('search').addEventListener('input', filterProducts);
     </script>
 </body>

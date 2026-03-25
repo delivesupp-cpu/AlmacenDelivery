@@ -3,15 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Caja - Despensa</title>
+    <title>Caja</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
         .cart-item {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            border-bottom: 1px solid #eee;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
         }
         .total {
             font-size: 28px;
@@ -19,58 +18,53 @@
             text-align: right;
             margin-top: 20px;
             padding-top: 20px;
-            border-top: 2px solid #333;
-        }
-        .search-product {
-            position: relative;
+            border-top: 2px solid #e2e8f0;
         }
         .search-results {
             position: absolute;
             background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            max-height: 250px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            max-height: 200px;
             overflow-y: auto;
             width: 100%;
             z-index: 100;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         .search-result-item {
-            padding: 12px;
+            padding: 10px 14px;
             cursor: pointer;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #f1f5f9;
         }
-        .search-result-item:hover {
-            background: #f5f5f5;
-        }
+        .search-result-item:hover { background: #f8fafc; }
+        .relative { position: relative; }
     </style>
 </head>
 <body>
-    <div id="menu"></div>
-    <div class="container">
-        <h1>💰 Caja Registradora</h1>
+    <div class="main-content">
+        <h1 style="margin-bottom: 8px;">💰 Caja</h1>
+        <p style="color: #64748b; margin-bottom: 24px;">Registro de ventas</p>
         
         <div class="card">
-            <h3>🛍️ Agregar Producto</h3>
-            <div class="search-product">
-                <input type="text" id="productSearch" placeholder="Buscar producto..." autocomplete="off" style="font-size:16px;">
+            <h3 style="margin-bottom: 16px;">Agregar Producto</h3>
+            <div class="relative">
+                <input type="text" id="productSearch" placeholder="Buscar producto..." autocomplete="off">
                 <div id="searchResults" class="search-results" style="display:none;"></div>
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 15px; align-items: center;">
-                <input type="number" id="quantity" placeholder="Cantidad" value="1" style="width: 100px;">
-                <button id="addToCartBtn" class="btn" disabled style="flex:1;">➕ Agregar al carrito</button>
+            <div style="display: flex; gap: 12px; margin-top: 16px;">
+                <input type="number" id="quantity" value="1" style="width: 100px;">
+                <button id="addToCartBtn" class="btn btn-primary" disabled style="flex:1;">Agregar</button>
             </div>
         </div>
         
         <div class="card">
-            <h3>🛒 Carrito de Compras</h3>
+            <h3 style="margin-bottom: 16px;">Carrito</h3>
             <div id="cartItems">
-                <div style="color:#999; text-align:center; padding:20px;">No hay productos en el carrito</div>
+                <div style="text-align:center; padding:20px; color:#64748b;">Sin productos</div>
             </div>
             <div class="total">
                 Total: $<span id="totalAmount">0.00</span>
             </div>
-            <button id="checkoutBtn" class="btn btn-success" style="width:100%; margin-top:15px; padding:14px;">✅ Finalizar Venta</button>
+            <button id="checkoutBtn" class="btn btn-success" style="width:100%; margin-top:20px;">Finalizar Venta</button>
         </div>
     </div>
 
@@ -88,26 +82,19 @@
                 document.getElementById('searchResults').style.display = 'none';
                 return;
             }
-            
-            const { data } = await supabase
+            const { data } = await window.supabaseClient
                 .from('products')
-                .select(`
-                    id, name, brand, unit,
-                    prices(price, providers(name))
-                `)
+                .select(`id, name, brand, unit, prices(price)`)
                 .ilike('name', `%${term}%`)
                 .limit(10);
-            
             const resultsDiv = document.getElementById('searchResults');
             if (data && data.length > 0) {
                 resultsDiv.innerHTML = data.map(p => {
                     const bestPrice = p.prices?.length > 0 ? Math.min(...p.prices.map(pr => pr.price)) : null;
-                    return `
-                        <div class="search-result-item" onclick="selectProduct(${p.id}, '${p.name} ${p.brand}', ${bestPrice || 0}, '${p.unit || 'unidad'}')">
-                            <strong>${p.name} - ${p.brand}</strong>
-                            ${bestPrice ? `<br>💰 $${bestPrice} (${p.unit || 'unidad'})` : '<br>⚠️ Sin precio disponible'}
-                        </div>
-                    `;
+                    return `<div class="search-result-item" onclick="selectProduct(${p.id}, '${p.name} ${p.brand}', ${bestPrice || 0})">
+                        <strong>${p.name} - ${p.brand}</strong>
+                        ${bestPrice ? `<br>$${bestPrice} (${p.unit || 'unidad'})` : '<br>Sin precio'}
+                    </div>`;
                 }).join('');
                 resultsDiv.style.display = 'block';
             } else {
@@ -115,30 +102,19 @@
             }
         }
         
-        function selectProduct(id, name, price, unit) {
-            if (price === 0) {
-                alert('Este producto no tiene precio cargado');
-                return;
-            }
-            selectedProduct = { id, name, price, unit };
+        function selectProduct(id, name, price) {
+            if (price === 0) { alert('Sin precio'); return; }
+            selectedProduct = { id, name, price };
             document.getElementById('productSearch').value = name;
             document.getElementById('searchResults').style.display = 'none';
             document.getElementById('addToCartBtn').disabled = false;
         }
         
         function addToCart() {
-            if (!selectedProduct || !selectedProduct.price) return;
-            
+            if (!selectedProduct) return;
             const quantity = parseInt(document.getElementById('quantity').value) || 1;
-            
-            cart.push({
-                ...selectedProduct,
-                quantity,
-                subtotal: selectedProduct.price * quantity
-            });
-            
+            cart.push({ ...selectedProduct, quantity, subtotal: selectedProduct.price * quantity });
             updateCartDisplay();
-            
             selectedProduct = null;
             document.getElementById('productSearch').value = '';
             document.getElementById('quantity').value = '1';
@@ -148,48 +124,27 @@
         function updateCartDisplay() {
             const container = document.getElementById('cartItems');
             let total = 0;
-            
             if (cart.length === 0) {
-                container.innerHTML = '<div style="color:#999; text-align:center; padding:20px;">No hay productos en el carrito</div>';
+                container.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">Sin productos</div>';
                 document.getElementById('totalAmount').innerText = '0.00';
                 return;
             }
-            
             container.innerHTML = cart.map((item, index) => {
                 total += item.subtotal;
-                return `
-                    <div class="cart-item">
-                        <div style="flex:2">
-                            <strong>${item.name}</strong><br>
-                            <span style="font-size:12px; color:#666;">$${item.price} x ${item.quantity} ${item.unit}</span>
-                        </div>
-                        <div style="text-align:right;">
-                            <strong>$${item.subtotal.toFixed(2)}</strong>
-                            <button onclick="removeFromCart(${index})" class="btn btn-danger" style="padding:5px 10px; margin-left:10px;">✖️</button>
-                        </div>
-                    </div>
-                `;
+                return `<div class="cart-item">
+                    <div><strong>${item.name}</strong><br><span style="font-size:12px;">$${item.price} x ${item.quantity}</span></div>
+                    <div><strong>$${item.subtotal.toFixed(2)}</strong> <button onclick="removeFromCart(${index})" class="btn btn-danger" style="padding:4px 8px;">X</button></div>
+                </div>`;
             }).join('');
-            
             document.getElementById('totalAmount').innerText = total.toFixed(2);
         }
         
-        function removeFromCart(index) {
-            cart.splice(index, 1);
-            updateCartDisplay();
-        }
-        
+        function removeFromCart(index) { cart.splice(index, 1); updateCartDisplay(); }
         function checkout() {
-            if (cart.length === 0) {
-                alert('No hay productos en el carrito');
-                return;
-            }
-            
-            const total = cart.reduce((sum, item) => sum + item.subtotal, 0);
-            const itemsList = cart.map(item => `${item.name} x${item.quantity}`).join('\n');
-            
-            if (confirm(`📋 Resumen de venta:\n\n${itemsList}\n\n💰 Total: $${total.toFixed(2)}\n\n¿Confirmar venta?`)) {
-                alert(`✅ Venta finalizada\n\nTotal: $${total.toFixed(2)}\n\n¡Gracias por su compra!`);
+            if (cart.length === 0) return alert('Carrito vacío');
+            const total = cart.reduce((s, i) => s + i.subtotal, 0);
+            if (confirm(`Total: $${total.toFixed(2)}\n¿Finalizar?`)) {
+                alert('Venta finalizada');
                 cart = [];
                 updateCartDisplay();
             }
@@ -201,10 +156,7 @@
         });
         document.getElementById('addToCartBtn').addEventListener('click', addToCart);
         document.getElementById('checkoutBtn').addEventListener('click', checkout);
-        
-        checkAccess().then(() => {
-            buildMenu();
-        });
+        checkAccess().then(() => buildMenu());
     </script>
 </body>
 </html>

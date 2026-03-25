@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard - AlmacenDelivery</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div id="sidebar-container"></div>
+    <div class="main-content">
+        <h1 style="margin-bottom: 8px;">Dashboard</h1>
+        <p style="color: #64748b; margin-bottom: 32px;">Resumen general del sistema</p>
+        
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card">
+                <div class="stat-value" id="totalProducts">-</div>
+                <div class="stat-label">Productos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalProviders">-</div>
+                <div class="stat-label">Proveedores</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalPrices">-</div>
+                <div class="stat-label">Precios registrados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="lastUpdate">-</div>
+                <div class="stat-label">Última actualización</div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">📦 Productos recientes</div>
+            <div id="recentProducts"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/js/supabase-client.js"></script>
+    <script src="/js/auth.js"></script>
+    <script>
+        async function loadStats() {
+            const { count: products } = await window.supabaseClient.from('products').select('*', { count: 'exact', head: true });
+            const { count: providers } = await window.supabaseClient.from('providers').select('*', { count: 'exact', head: true });
+            const { count: prices } = await window.supabaseClient.from('prices').select('*', { count: 'exact', head: true });
+            
+            document.getElementById('totalProducts').textContent = products || 0;
+            document.getElementById('totalProviders').textContent = providers || 0;
+            document.getElementById('totalPrices').textContent = prices || 0;
+            
+            const { data: lastPrice } = await window.supabaseClient
+                .from('prices')
+                .select('updated_at')
+                .order('updated_at', { ascending: false })
+                .limit(1);
+            
+            if (lastPrice && lastPrice[0]) {
+                const date = new Date(lastPrice[0].updated_at);
+                document.getElementById('lastUpdate').textContent = date.toLocaleDateString();
+            } else {
+                document.getElementById('lastUpdate').textContent = 'Sin datos';
+            }
+        }
+        
+        async function loadRecentProducts() {
+            const { data } = await window.supabaseClient
+                .from('products')
+                .select('name, brand, categories(name)')
+                .order('created_at', { ascending: false })
+                .limit(5);
+            
+            const container = document.getElementById('recentProducts');
+            if (data && data.length > 0) {
+                container.innerHTML = data.map(p => `
+                    <div style="padding: 12px 0; border-bottom: 1px solid #e2e8f0;">
+                        <strong>${p.name}</strong> - ${p.brand}
+                        <span style="color: #64748b; font-size: 12px; margin-left: 8px;">${p.categories?.name || 'Sin categoría'}</span>
+                    </div>
+                `).join('');
+            } else {
+                container.innerHTML = '<div style="color: #64748b;">No hay productos cargados</div>';
+            }
+        }
+        
+        checkAccess().then(() => {
+            buildMenu();
+            loadStats();
+            loadRecentProducts();
+        });
+    </script>
+</body>
+</html>

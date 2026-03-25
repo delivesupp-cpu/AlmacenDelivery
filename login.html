@@ -3,65 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Login - Despensa Comparador</title>
+    <title>Login - AlmacenDelivery</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Inter', sans-serif;
+            background: #f8fafc;
+            min-height: 100vh;
             display: flex;
-            justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            justify-content: center;
         }
-        .login-box {
+        .login-container {
             background: white;
             padding: 40px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            width: 320px;
+            border-radius: 32px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+            width: 360px;
+            border: 1px solid #e2e8f0;
         }
         h2 {
-            text-align: center;
-            color: #333;
-            margin-bottom: 30px;
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #0f172a;
+        }
+        .subtitle {
+            color: #64748b;
+            margin-bottom: 32px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #334155;
+            margin-bottom: 6px;
         }
         input {
             width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            box-sizing: border-box;
-            font-size: 16px;
+            padding: 12px 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 3px rgba(15,23,42,0.05);
         }
         button {
             width: 100%;
             padding: 12px;
-            background: #667eea;
+            background: #0f172a;
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 16px;
+            border-radius: 40px;
+            font-size: 14px;
+            font-weight: 500;
             cursor: pointer;
-            margin-top: 10px;
+            margin-top: 8px;
+            transition: all 0.2s;
         }
         button:hover {
-            background: #5a67d8;
+            background: #1e293b;
         }
         .error {
-            color: red;
-            margin-top: 10px;
-            font-size: 14px;
+            color: #dc2626;
+            font-size: 13px;
+            margin-top: 12px;
             text-align: center;
         }
     </style>
 </head>
 <body>
-    <div class="login-box">
-        <h2>Despensa Comparador</h2>
+    <div class="login-container">
+        <h2>Bienvenido</h2>
+        <p class="subtitle">Ingresa tus credenciales</p>
+        
         <input type="email" id="email" placeholder="Email" autocomplete="off">
-        <input type="password" id="password" placeholder="Contraseña">
+        <input type="password" id="password" placeholder="Contraseña" style="margin-top: 16px;">
         <button onclick="login()">Ingresar</button>
         <div id="error" class="error"></div>
     </div>
@@ -74,7 +101,7 @@
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('error');
             
-            const { data, error } = await supabase
+            const { data, error } = await window.supabaseClient
                 .from('users')
                 .select('id, email, role_id, roles(name)')
                 .eq('email', email)
@@ -85,7 +112,7 @@
                 localStorage.setItem('userId', data.id);
                 localStorage.setItem('userEmail', data.email);
                 localStorage.setItem('userRole', data.roles.name);
-                window.location.href = '/pages/shared/comparator.html';
+                window.location.href = '/pages/dashboard.html';
             } else {
                 errorDiv.textContent = 'Email o contraseña incorrectos';
             }

@@ -1,22 +1,25 @@
 [admin]
+pages/dashboard.html
+pages/shared/comparator.html
+pages/shared/search.html
+pages/gerente/add-product.html
+pages/gerente/add-provider.html
+pages/gerente/categories.html
+pages/cajero/cashier.html
 pages/admin/users.html
 pages/admin/roles.html
-pages/gerente/add-product.html
-pages/gerente/add-provider.html
-pages/gerente/categories.html
-pages/cajero/cashier.html
-pages/shared/comparator.html
-pages/shared/search.html
 
 [gerente]
+pages/dashboard.html
+pages/shared/comparator.html
+pages/shared/search.html
 pages/gerente/add-product.html
 pages/gerente/add-provider.html
 pages/gerente/categories.html
 pages/cajero/cashier.html
-pages/shared/comparator.html
-pages/shared/search.html
 
 [cajero]
-pages/cajero/cashier.html
+pages/dashboard.html
 pages/shared/comparator.html
 pages/shared/search.html
+pages/cajero/cashier.html

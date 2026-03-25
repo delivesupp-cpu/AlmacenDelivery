@@ -3,61 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Gestionar Roles</title>
+    <title>Roles</title>
     <link rel="stylesheet" href="/css/style.css">
-    <style>
-        .role-item {
-            background: white;
-            padding: 15px 20px;
-            margin: 10px 0;
-            border-radius: 12px;
-            border: 1px solid #e9ecef;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .role-badge {
-            background: #667eea;
-            color: white;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            margin-left: 10px;
-        }
-        .config-note {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-    </style>
 </head>
 <body>
-    <div id="menu"></div>
-    <div class="container">
-        <h1>🎭 Gestionar Roles</h1>
+    <div class="main-content">
+        <h1 style="margin-bottom: 8px;">🎭 Roles</h1>
+        <p style="color: #64748b; margin-bottom: 24px;">Gestión de roles del sistema</p>
         
         <div class="card">
-            <h3>➕ Agregar Nuevo Rol</h3>
+            <h3 style="margin-bottom: 16px;">Agregar Rol</h3>
             <form id="roleForm">
-                <div class="form-group">
-                    <label>Nombre del Rol</label>
-                    <input type="text" id="roleName" placeholder="Ej: supervisor" required>
-                </div>
-                <button type="submit" class="btn btn-success">➕ Agregar Rol</button>
+                <input type="text" id="roleName" placeholder="Nombre del rol" required>
+                <button type="submit" class="btn btn-primary" style="margin-top:12px;">Agregar</button>
             </form>
             <div id="message"></div>
         </div>
         
-        <h2>📋 Roles Existentes</h2>
-        <div id="rolesList">
-            <div class="loading">Cargando...</div>
-        </div>
+        <div id="rolesList"></div>
         
-        <div class="config-note">
-            <strong>⚙️ Configuración de Permisos</strong><br>
-            Los permisos por rol se gestionan editando el archivo <code style="background:#e9ecef; padding:2px 6px; border-radius:4px;">roles-config.txt</code> en la raíz del proyecto.
+        <div style="background:#f1f5f9; padding:16px; border-radius:16px; margin-top:24px;">
+            <strong>⚙️ Permisos</strong><br>
+            <span style="font-size:13px; color:#64748b;">Editar <code>roles-config.txt</code> para configurar qué páginas puede ver cada rol.</span>
         </div>
     </div>
 
@@ -66,65 +33,42 @@
     <script src="/js/auth.js"></script>
     <script>
         async function loadRoles() {
-            const { data } = await supabase.from('roles').select('*').order('id');
+            const { data } = await window.supabaseClient.from('roles').select('*').order('id');
             const container = document.getElementById('rolesList');
-            
             if (data && data.length > 0) {
                 container.innerHTML = data.map(r => `
-                    <div class="role-item">
-                        <div>
-                            <span style="font-size:16px; font-weight:500;">${r.name}</span>
-                            ${['admin', 'gerente', 'cajero'].includes(r.name) ? '<span class="role-badge">Base</span>' : ''}
-                        </div>
-                        ${!['admin', 'gerente', 'cajero'].includes(r.name) ? `
-                            <button onclick="deleteRole(${r.id})" class="btn btn-danger" style="padding:6px 12px;">🗑️ Eliminar</button>
-                        ` : '<span style="color:#999;">No se puede eliminar</span>'}
+                    <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span><strong>${r.name}</strong> ${['admin','gerente','cajero'].includes(r.name) ? '<span style="background:#e2e8f0; padding:2px 8px; border-radius:20px; font-size:11px; margin-left:8px;">Base</span>' : ''}</span>
+                        ${!['admin','gerente','cajero'].includes(r.name) ? `<button onclick="deleteRole(${r.id})" class="btn btn-danger">Eliminar</button>` : ''}
                     </div>
                 `).join('');
             } else {
-                container.innerHTML = '<div class="card">📭 No hay roles cargados</div>';
+                container.innerHTML = '<div class="card">No hay roles</div>';
             }
         }
         
         async function addRole(event) {
             event.preventDefault();
-            
             const name = document.getElementById('roleName').value.trim().toLowerCase();
-            
-            if (!name) {
-                document.getElementById('message').innerHTML = '<div class="error-msg">❌ El nombre es obligatorio</div>';
-                return;
-            }
-            
-            const { error } = await supabase.from('roles').insert({ name });
-            
+            if (!name) return;
+            const { error } = await window.supabaseClient.from('roles').insert({ name });
             if (!error) {
-                document.getElementById('message').innerHTML = '<div class="success">✓ Rol agregado correctamente</div>';
+                document.getElementById('message').innerHTML = '<div class="success">✓ Rol agregado</div>';
                 document.getElementById('roleName').value = '';
                 loadRoles();
                 setTimeout(() => document.getElementById('message').innerHTML = '', 3000);
-            } else {
-                document.getElementById('message').innerHTML = `<div class="error-msg">❌ Error: ${error.message}</div>`;
             }
         }
         
         async function deleteRole(id) {
-            if (confirm('¿Eliminar este rol? Los usuarios con este rol quedarán sin asignación.')) {
-                const { error } = await supabase.from('roles').delete().eq('id', id);
-                if (!error) {
-                    loadRoles();
-                } else {
-                    alert('Error: ' + error.message);
-                }
+            if (confirm('¿Eliminar?')) {
+                await window.supabaseClient.from('roles').delete().eq('id', id);
+                loadRoles();
             }
         }
         
         document.getElementById('roleForm').addEventListener('submit', addRole);
-        
-        checkAccess().then(() => {
-            buildMenu();
-            loadRoles();
-        });
+        checkAccess().then(() => { buildMenu(); loadRoles(); });
     </script>
 </body>
 </html>
