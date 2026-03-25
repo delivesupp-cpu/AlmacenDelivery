@@ -38,53 +38,75 @@
         <div id="providersList"></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="/js/supabase-client.js"></script>
-    <script src="/js/auth.js"></script>
-    <script>
-        async function loadProviders() {
-            const { data } = await window.supabaseClient.from('providers').select('*').order('name');
-            const container = document.getElementById('providersList');
-            if (data && data.length > 0) {
-                container.innerHTML = data.map(p => `
-                    <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <strong>${p.name}</strong>
-                            <div style="font-size:12px; color:#64748b;">${p.whatsapp || ''} ${p.email || ''}</div>
-                        </div>
-                        <button onclick="deleteProvider(${p.id})" class="btn btn-danger" style="padding:6px 12px;">Eliminar</button>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-client.js"></script>
+<script src="/js/auth.js"></script>
+<script>
+    async function loadProviders() {
+        const { data } = await window.supabaseClient.from('providers').select('*').order('name');
+        const container = document.getElementById('providersList');
+        console.log('Proveedores cargados:', data); // Para depurar
+        if (data && data.length > 0) {
+            container.innerHTML = data.map(p => `
+                <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <strong>${p.name}</strong>
+                        <div style="font-size:12px; color:#64748b;">${p.whatsapp || ''} ${p.email || ''}</div>
                     </div>
-                `).join('');
-            } else {
-                container.innerHTML = '<div class="card">No hay proveedores</div>';
-            }
+                    <button onclick="deleteProvider(${p.id})" class="btn btn-danger" style="padding:6px 12px;">Eliminar</button>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<div class="card">No hay proveedores cargados</div>';
+        }
+    }
+    
+    async function saveProvider(event) {
+        event.preventDefault();
+        const name = document.getElementById('name').value.trim();
+        const whatsapp = document.getElementById('whatsapp').value;
+        const email = document.getElementById('email').value;
+        const website = document.getElementById('website').value;
+        
+        if (!name) {
+            document.getElementById('message').innerHTML = '<div class="error-msg">El nombre es obligatorio</div>';
+            return;
         }
         
-        async function saveProvider(event) {
-            event.preventDefault();
-            const name = document.getElementById('name').value.trim();
-            const whatsapp = document.getElementById('whatsapp').value;
-            const email = document.getElementById('email').value;
-            const website = document.getElementById('website').value;
-            if (!name) return;
-            const { error } = await window.supabaseClient.from('providers').insert({ name, whatsapp, email, website });
+        const { data, error } = await window.supabaseClient
+            .from('providers')
+            .insert({ name, whatsapp, email, website });
+        
+        if (!error) {
+            document.getElementById('message').innerHTML = '<div class="success">✓ Proveedor guardado</div>';
+            document.getElementById('providerForm').reset();
+            loadProviders();
+            setTimeout(() => document.getElementById('message').innerHTML = '', 3000);
+        } else {
+            document.getElementById('message').innerHTML = `<div class="error-msg">Error: ${error.message}</div>`;
+        }
+    }
+    
+    async function deleteProvider(id) {
+        if (confirm('¿Eliminar este proveedor?')) {
+            const { error } = await window.supabaseClient
+                .from('providers')
+                .delete()
+                .eq('id', id);
             if (!error) {
-                document.getElementById('message').innerHTML = '<div class="success">✓ Proveedor guardado</div>';
-                document.getElementById('providerForm').reset();
                 loadProviders();
-                setTimeout(() => document.getElementById('message').innerHTML = '', 3000);
+            } else {
+                alert('Error: ' + error.message);
             }
         }
-        
-        async function deleteProvider(id) {
-            if (confirm('¿Eliminar?')) {
-                await window.supabaseClient.from('providers').delete().eq('id', id);
-                loadProviders();
-            }
-        }
-        
-        document.getElementById('providerForm').addEventListener('submit', saveProvider);
-        checkAccess().then(() => { buildMenu(); loadProviders(); });
-    </script>
+    }
+    
+    document.getElementById('providerForm').addEventListener('submit', saveProvider);
+    
+    checkAccess().then(() => { 
+        buildMenu(); 
+        loadProviders(); 
+    });
+</script>
 </body>
 </html>

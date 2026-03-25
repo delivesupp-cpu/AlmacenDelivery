@@ -1,7 +1,7 @@
-// js/auth.js
+// js/auth.js - Versión corregida
 let navSections = [];
 
-// Configuración de navegación - PODÉS EDITAR ESTO PARA AGREGAR SECCIONES
+// Configuración de navegación
 const navigationConfig = {
     sections: [
         {
@@ -42,7 +42,6 @@ async function buildSidebar() {
     const userName = userEmail ? userEmail.split('@')[0] : 'Usuario';
     const userInitial = userName.charAt(0).toUpperCase();
     
-    // Filtrar según rol
     const filteredSections = navigationConfig.sections.map(section => ({
         ...section,
         items: section.items.filter(item => item.roles.includes(userRole))
@@ -80,29 +79,37 @@ async function buildSidebar() {
         </div>
     `;
     
-    // Insertar sidebar en el DOM
+    // Buscar o crear la estructura del dashboard
+    let dashboard = document.querySelector('.dashboard');
     let sidebar = document.querySelector('.sidebar');
-    if (!sidebar) {
-        // Crear estructura dashboard si no existe
+    let mainContent = document.querySelector('.main-content');
+    
+    if (!dashboard) {
+        // Si no existe la estructura, crear el wrapper
+        const originalContent = document.body.innerHTML;
         document.body.innerHTML = `
             <div class="dashboard">
-                <div class="sidebar">${sidebarHTML}</div>
-                <div class="main-content" id="mainContent">
-                    ${document.body.innerHTML}
-                </div>
+                <div class="sidebar" id="sidebar">${sidebarHTML}</div>
+                <div class="main-content" id="mainContent">${originalContent}</div>
             </div>
         `;
     } else {
-        sidebar.innerHTML = sidebarHTML;
+        // Si existe, solo actualizar el sidebar
+        const sidebarElement = document.querySelector('.sidebar');
+        if (sidebarElement) {
+            sidebarElement.innerHTML = sidebarHTML;
+        }
     }
     
     // Marcar item activo
     const currentPath = window.location.pathname;
-    document.querySelectorAll('.nav-item').forEach(item => {
-        if (item.getAttribute('data-path') === currentPath) {
-            item.classList.add('active');
-        }
-    });
+    setTimeout(() => {
+        document.querySelectorAll('.nav-item').forEach(item => {
+            if (item.getAttribute('data-path') === currentPath) {
+                item.classList.add('active');
+            }
+        });
+    }, 100);
 }
 
 async function checkAccess() {
