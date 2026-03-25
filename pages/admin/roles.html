@@ -16,16 +16,13 @@
             justify-content: space-between;
             align-items: center;
         }
-        .role-name {
-            font-size: 16px;
-            font-weight: 500;
-        }
         .role-badge {
             background: #667eea;
             color: white;
             padding: 4px 12px;
             border-radius: 20px;
             font-size: 12px;
+            margin-left: 10px;
         }
         .config-note {
             background: #fff3cd;
@@ -60,8 +57,7 @@
         
         <div class="config-note">
             <strong>⚙️ Configuración de Permisos</strong><br>
-            Los permisos por rol se gestionan editando el archivo <code style="background:#e9ecef; padding:2px 6px; border-radius:4px;">roles-config.txt</code> en la raíz del proyecto.<br>
-            <span style="font-size:13px; color:#856404;">📌 Cada rol tiene una sección [nombre] y abajo las rutas de las páginas que puede acceder.</span>
+            Los permisos por rol se gestionan editando el archivo <code style="background:#e9ecef; padding:2px 6px; border-radius:4px;">roles-config.txt</code> en la raíz del proyecto.
         </div>
     </div>
 
@@ -77,8 +73,8 @@
                 container.innerHTML = data.map(r => `
                     <div class="role-item">
                         <div>
-                            <span class="role-name">${r.name}</span>
-                            ${['admin', 'gerente', 'cajero'].includes(r.name) ? '<span class="role-badge" style="margin-left:10px;">Base</span>' : ''}
+                            <span style="font-size:16px; font-weight:500;">${r.name}</span>
+                            ${['admin', 'gerente', 'cajero'].includes(r.name) ? '<span class="role-badge">Base</span>' : ''}
                         </div>
                         ${!['admin', 'gerente', 'cajero'].includes(r.name) ? `
                             <button onclick="deleteRole(${r.id})" class="btn btn-danger" style="padding:6px 12px;">🗑️ Eliminar</button>

@@ -17,9 +17,6 @@
             align-items: center;
             flex-wrap: wrap;
         }
-        .user-info {
-            flex: 1;
-        }
         .user-email {
             font-weight: bold;
             font-size: 16px;
@@ -82,7 +79,7 @@
             if (data && data.length > 0) {
                 container.innerHTML = data.map(u => `
                     <div class="user-item">
-                        <div class="user-info">
+                        <div>
                             <div class="user-email">📧 ${u.email}</div>
                             <div class="user-role">🎭 Rol: ${u.roles?.name}</div>
                         </div>

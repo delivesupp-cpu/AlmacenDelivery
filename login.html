@@ -74,27 +74,20 @@
             const password = document.getElementById('password').value;
             const errorDiv = document.getElementById('error');
             
-            try {
-                console.log('Intentando login...');
-                const { data, error } = await window.supabaseClient
-                    .from('users')
-                    .select('id, email, role_id, roles(name)')
-                    .eq('email', email)
-                    .eq('password', password)
-                    .single();
-                
-                if (data) {
-                    console.log('Login exitoso:', data);
-                    localStorage.setItem('userId', data.id);
-                    localStorage.setItem('userEmail', data.email);
-                    localStorage.setItem('userRole', data.roles.name);
-                    window.location.href = '/pages/shared/comparator.html';
-                } else {
-                    errorDiv.textContent = 'Email o contraseña incorrectos';
-                }
-            } catch (err) {
-                console.error('Error:', err);
-                errorDiv.textContent = 'Error de conexión: ' + err.message;
+            const { data, error } = await supabase
+                .from('users')
+                .select('id, email, role_id, roles(name)')
+                .eq('email', email)
+                .eq('password', password)
+                .single();
+            
+            if (data) {
+                localStorage.setItem('userId', data.id);
+                localStorage.setItem('userEmail', data.email);
+                localStorage.setItem('userRole', data.roles.name);
+                window.location.href = '/pages/shared/comparator.html';
+            } else {
+                errorDiv.textContent = 'Email o contraseña incorrectos';
             }
         }
     </script>

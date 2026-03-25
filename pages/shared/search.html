@@ -17,7 +17,6 @@
         }
         .result-item:hover {
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transform: translateY(-2px);
         }
         .product-name {
             font-size: 18px;
@@ -68,9 +67,6 @@
             font-weight: bold;
             color: #999;
         }
-        .close:hover {
-            color: #333;
-        }
         .search-input {
             width: 100%;
             padding: 14px;
@@ -79,13 +75,6 @@
             border-radius: 30px;
             margin-bottom: 20px;
             box-sizing: border-box;
-        }
-        .provider-detail {
-            padding: 12px;
-            border-bottom: 1px solid #eee;
-        }
-        .provider-detail:last-child {
-            border-bottom: none;
         }
     </style>
 </head>
@@ -182,16 +171,14 @@
                     <p style="color:#667eea; margin-bottom:15px;">📂 ${data.categories?.name} | 📦 ${data.unit || 'unidad'}</p>
                     <h3 style="margin:20px 0 10px 0;">💰 Precios por proveedor</h3>
                     ${sortedPrices.map((pr, idx) => `
-                        <div class="provider-detail" style="background: ${idx === 0 ? '#e8f5e9' : 'transparent'};">
+                        <div style="border-bottom:1px solid #eee; padding:12px 0; background: ${idx === 0 ? '#e8f5e9' : 'transparent'};">
                             <strong>🏪 ${pr.providers?.name}</strong>
                             <div style="font-size:20px; font-weight:bold; color:#28a745; margin:8px 0;">$${pr.price.toFixed(2)}</div>
                             <div style="font-size:12px; color:#666;">📅 Actualizado: ${new Date(pr.updated_at).toLocaleString()}</div>
-                            ${pr.providers?.whatsapp ? `<div style="font-size:12px; margin-top:5px;">📱 WhatsApp: ${pr.providers.whatsapp}</div>` : ''}
+                            ${pr.providers?.whatsapp ? `<div style="font-size:12px;">📱 WhatsApp: ${pr.providers.whatsapp}</div>` : ''}
                             ${pr.providers?.email ? `<div style="font-size:12px;">📧 Email: ${pr.providers.email}</div>` : ''}
-                            ${pr.providers?.website ? `<div style="font-size:12px;">🌐 Web: ${pr.providers.website}</div>` : ''}
                         </div>
                     `).join('')}
-                    ${data.prices?.length === 0 ? '<div style="color:#999;">Sin precios cargados</div>' : ''}
                 `;
                 document.getElementById('modal').style.display = 'flex';
             }
