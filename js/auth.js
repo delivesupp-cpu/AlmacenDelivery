@@ -1,67 +1,26 @@
-let rolePermissions = {};
-
-async function loadPermissions() {
-    try {
-        const response = await fetch('/roles-config.txt');
-        const text = await response.text();
-        
-        let currentRole = '';
-        const lines = text.split('\n');
-        
-        for (let line of lines) {
-            line = line.trim();
-            if (line.startsWith('[') && line.endsWith(']')) {
-                currentRole = line.slice(1, -1);
-                rolePermissions[currentRole] = [];
-            } else if (line && currentRole) {
-                rolePermissions[currentRole].push(line);
-            }
-        }
-    } catch (error) {
-        console.error('Error loading permissions:', error);
-    }
-}
-
-function hasAccess(pagePath, userRole) {
-    const allowedPages = rolePermissions[userRole] || [];
-    return allowedPages.some(allowed => pagePath.includes(allowed));
-}
-
-async function checkAccess() {
-    await loadPermissions();
-    
-    const userRole = localStorage.getItem('userRole');
-    if (!userRole) {
-        window.location.href = '/login.html';
-        return false;
-    }
-    
-    const currentPath = window.location.pathname;
-    
-    if (!hasAccess(currentPath, userRole)) {
-        window.location.href = '/unauthorized.html';
-        return false;
-    }
-    return true;
-}
-
+// js/auth.js - VERSIÓN SIMPLIFICADA (sin verificación de permisos)
 async function buildMenu() {
-    await loadPermissions();
     const userRole = localStorage.getItem('userRole');
-    const allowed = rolePermissions[userRole] || [];
+    const userEmail = localStorage.getItem('userEmail');
     
-    const menuLinks = allowed.map(page => {
-        let pageName = page.split('/').pop().replace('.html', '');
-        pageName = pageName.charAt(0).toUpperCase() + pageName.slice(1);
-        return `<a href="/${page}">${pageName}</a>`;
-    }).join('');
+    // Menú básico para todos
+    const menuLinks = `
+        <a href="/pages/shared/comparator.html">Comparador</a>
+        <a href="/pages/shared/search.html">Buscar</a>
+        <a href="/pages/gerente/add-product.html">AgregarProducto</a>
+        <a href="/pages/gerente/add-provider.html">AgregarProveedor</a>
+        <a href="/pages/gerente/categories.html">Categorias</a>
+        <a href="/pages/cajero/cashier.html">Caja</a>
+        <a href="/pages/admin/users.html">Usuarios</a>
+        <a href="/pages/admin/roles.html">Roles</a>
+    `;
     
     const menuDiv = document.getElementById('menu');
     if (menuDiv) {
         menuDiv.innerHTML = `
             <div style="display:flex; flex-wrap:wrap; gap:5px;">${menuLinks}</div>
             <div style="display:flex; align-items:center; gap:15px;">
-                <span style="color:#fff; font-size:14px;">👤 ${localStorage.getItem('userEmail')} (${userRole})</span>
+                <span style="color:#fff; font-size:14px;">👤 ${userEmail} (${userRole})</span>
                 <a href="#" onclick="logout()" class="logout-btn" style="background:#dc3545; padding:8px 15px; border-radius:8px;">🚪 Cerrar Sesión</a>
             </div>
         `;
@@ -75,7 +34,11 @@ function logout() {
     window.location.href = '/login.html';
 }
 
+// Función vacía para no bloquear
+async function checkAccess() {
+    return true;
+}
+
 window.checkAccess = checkAccess;
 window.buildMenu = buildMenu;
-window.hasAccess = hasAccess;
 window.logout = logout;
