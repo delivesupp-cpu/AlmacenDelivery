@@ -6,6 +6,15 @@
     <title>Agregar Producto</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
+        .unit-row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        .unit-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
         .unit-buttons {
             display: flex;
             gap: 8px;
@@ -22,31 +31,6 @@
             transition: all 0.2s;
         }
         .unit-btn:hover {
-            background: #e2e8f0;
-        }
-        .unit-custom {
-            display: flex;
-            gap: 8px;
-            margin-top: 8px;
-        }
-        .unit-custom input {
-            flex: 1;
-        }
-        .unit-preset {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-bottom: 12px;
-        }
-        .preset-badge {
-            background: #f1f5f9;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .preset-badge:hover {
             background: #e2e8f0;
         }
         .suggestions-list {
@@ -85,18 +69,15 @@
     <script>
         let existingProducts = [];
         
-        // Unidades predefinidas con ejemplos
-        const unitPresets = [
-            { value: "kg", example: "1kg, 500g, 2kg" },
-            { value: "gr", example: "500gr, 1000gr" },
-            { value: "litro", example: "1 litro, 500ml, 1.5L" },
-            { value: "ml", example: "500ml, 1000ml" },
-            { value: "unidad", example: "1 unidad, 6 unidades" },
-            { value: "docena", example: "1 docena, media docena" },
-            { value: "paquete", example: "paquete 500g, paquete x6" },
-            { value: "bolsa", example: "bolsa 1kg, bolsa chica" },
-            { value: "latas", example: "lata 355ml, pack 6 latas" },
-            { value: "botella", example: "botella 1.5L, botella 2L" }
+        // Tipos de unidad predefinidos
+        const unitTypes = [
+            { value: "gr", label: "gramos", example: "500gr" },
+            { value: "kg", label: "kilogramos", example: "1kg, 2kg" },
+            { value: "litro", label: "litros", example: "1 litro, 1.5 litros" },
+            { value: "ml", label: "mililitros", example: "500ml" },
+            { value: "unidad", label: "unidades", example: "1 unidad, 6 unidades" },
+            { value: "docena", label: "docenas", example: "1 docena" },
+            { value: "paquete", label: "paquetes", example: "paquete" }
         ];
         
         async function loadCategories() {
@@ -114,22 +95,13 @@
         }
         
         async function loadExistingProducts() {
-            const { data } = await window.supabaseClient.from('products').select('name, brand, unit');
+            const { data } = await window.supabaseClient.from('products').select('name, brand, unit_quantity, unit_type');
             existingProducts = data || [];
         }
         
-        // Agregar unidad personalizada
-        function addCustomUnit() {
-            const customValue = document.getElementById('customUnit').value.trim();
-            if (customValue) {
-                document.getElementById('unit').value = customValue;
-                document.getElementById('customUnit').value = '';
-            }
-        }
-        
-        // Seleccionar unidad predefinida
-        function selectUnit(unit) {
-            document.getElementById('unit').value = unit;
+        // Seleccionar tipo de unidad
+        function selectUnitType(type) {
+            document.getElementById('unitType').value = type;
         }
         
         // Sugerir producto
@@ -147,8 +119,9 @@
             const suggestionsDiv = document.getElementById('productSuggestions');
             if (matches.length > 0) {
                 suggestionsDiv.innerHTML = matches.map(p => 
-                    `<div class="suggestion-item" onclick="selectProduct('${p.name}', '${p.brand}', '${p.unit}')">
-                        <strong>${p.name}</strong> - ${p.brand} <span style="color:#64748b; font-size:12px;">(${p.unit})</span>
+                    `<div class="suggestion-item" onclick="selectProduct('${p.name}', '${p.brand}', ${p.unit_quantity || 1}, '${p.unit_type || ''}')">
+                        <strong>${p.name}</strong> - ${p.brand}
+                        <span style="color:#64748b; font-size:12px;">(${p.unit_quantity}${p.unit_type})</span>
                     </div>`
                 ).join('');
                 suggestionsDiv.style.display = 'block';
@@ -157,11 +130,26 @@
             }
         }
         
-        function selectProduct(name, brand, unit) {
+        function selectProduct(name, brand, quantity, type) {
             document.getElementById('productName').value = name;
             document.getElementById('brand').value = brand;
-            if (unit) document.getElementById('unit').value = unit;
+            if (quantity) document.getElementById('unitQuantity').value = quantity;
+            if (type) document.getElementById('unitType').value = type;
             document.getElementById('productSuggestions').style.display = 'none';
+        }
+        
+        // Mostrar formato de unidad
+        function updateUnitDisplay() {
+            const quantity = document.getElementById('unitQuantity').value;
+            const type = document.getElementById('unitType').value;
+            const displaySpan = document.getElementById('unitDisplay');
+            if (quantity && type) {
+                displaySpan.innerHTML = `(${quantity} ${type})`;
+            } else if (type) {
+                displaySpan.innerHTML = `(${type})`;
+            } else {
+                displaySpan.innerHTML = '';
+            }
         }
         
         // Comparar precio
@@ -212,15 +200,19 @@
             const productName = document.getElementById('productName').value.trim();
             const brand = document.getElementById('brand').value.trim();
             const categoryId = document.getElementById('category').value;
-            const unit = document.getElementById('unit').value.trim();
+            const unitQuantity = parseFloat(document.getElementById('unitQuantity').value);
+            const unitType = document.getElementById('unitType').value.trim();
             const providerId = document.getElementById('provider').value;
             const price = parseFloat(document.getElementById('price').value);
             const userId = localStorage.getItem('userId');
             
-            if (!productName || !brand || !categoryId || !unit || !providerId || !price) {
+            if (!productName || !brand || !categoryId || !unitQuantity || !unitType || !providerId || !price) {
                 document.getElementById('message').innerHTML = '<div class="error-msg">❌ Completa todos los campos</div>';
                 return;
             }
+            
+            // Formatear unidad para mostrar
+            const unitDisplay = `${unitQuantity}${unitType}`;
             
             let productId;
             let { data: product } = await window.supabaseClient
@@ -233,7 +225,14 @@
             if (!product) {
                 const { data: newProduct, error: insertError } = await window.supabaseClient
                     .from('products')
-                    .insert({ name: productName, brand: brand, category_id: categoryId, unit: unit })
+                    .insert({ 
+                        name: productName, 
+                        brand: brand, 
+                        category_id: categoryId, 
+                        unit_quantity: unitQuantity,
+                        unit_type: unitType,
+                        unit: unitDisplay  // mantener por compatibilidad
+                    })
                     .select()
                     .single();
                 
@@ -249,7 +248,9 @@
                     .upsert({
                         product_name: productName,
                         brand: brand,
-                        suggested_unit: unit,
+                        unit_quantity: unitQuantity,
+                        unit_type: unitType,
+                        suggested_unit: unitDisplay,
                         times_used: 1
                     }, { onConflict: 'product_name,brand' });
             } else {
@@ -268,8 +269,9 @@
             if (!priceError) {
                 document.getElementById('message').innerHTML = '<div class="success">✓ Producto guardado correctamente</div>';
                 document.getElementById('productForm').reset();
-                document.getElementById('unit').value = '';
-                document.getElementById('customUnit').value = '';
+                document.getElementById('unitQuantity').value = '';
+                document.getElementById('unitType').value = '';
+                document.getElementById('unitDisplay').innerHTML = '';
                 setTimeout(() => document.getElementById('message').innerHTML = '', 3000);
                 loadExistingProducts();
             } else {
@@ -309,18 +311,24 @@
                                 
                                 <div class="form-group">
                                     <label>⚖️ Unidad de medida *</label>
-                                    <input type="text" id="unit" placeholder="Ej: kg, 500gr, litro, unidad, paquete x6" required>
-                                    <div class="unit-example">💡 Ejemplos: kg, 500gr, 1.5 litros, unidad, paquete x6, docena</div>
-                                    
-                                    <div class="unit-preset">
-                                        ${unitPresets.map(p => `
-                                            <div class="preset-badge" onclick="selectUnit('${p.value}')" title="${p.example}">${p.value}</div>
-                                        `).join('')}
+                                    <div class="unit-row">
+                                        <div class="form-group">
+                                            <input type="number" id="unitQuantity" placeholder="Cantidad" step="any" value="1" oninput="updateUnitDisplay()">
+                                        </div>
+                                        <div class="form-group">
+                                            <select id="unitType" onchange="updateUnitDisplay()">
+                                                <option value="">Seleccionar</option>
+                                                ${unitTypes.map(u => `<option value="${u.value}">${u.label} (${u.example})</option>`).join('')}
+                                            </select>
+                                        </div>
                                     </div>
-                                    
-                                    <div class="unit-custom">
-                                        <input type="text" id="customUnit" placeholder="Escribí tu unidad personalizada...">
-                                        <button type="button" class="btn btn-outline" onclick="addCustomUnit()" style="padding:10px 16px;">Usar</button>
+                                    <div class="unit-example">
+                                        💡 Ejemplo: <span id="unitDisplay"></span>
+                                    </div>
+                                    <div class="unit-buttons">
+                                        ${unitTypes.map(u => `
+                                            <button type="button" class="unit-btn" onclick="selectUnitType('${u.value}')">${u.value}</button>
+                                        `).join('')}
                                     </div>
                                 </div>
                                 
@@ -345,6 +353,8 @@
                     document.getElementById('productName').addEventListener('input', suggestProduct);
                     document.getElementById('price').addEventListener('input', comparePrice);
                     document.getElementById('provider').addEventListener('change', comparePrice);
+                    document.getElementById('unitQuantity').addEventListener('input', updateUnitDisplay);
+                    document.getElementById('unitType').addEventListener('change', updateUnitDisplay);
                     document.getElementById('productForm').addEventListener('submit', saveProduct);
                     
                     // Cargar datos
@@ -352,9 +362,9 @@
                     loadProviders();
                     loadExistingProducts();
                     
-                    // Exponer funciones globales para los botones
-                    window.selectUnit = selectUnit;
-                    window.addCustomUnit = addCustomUnit;
+                    // Exponer funciones globales
+                    window.selectUnitType = selectUnitType;
+                    window.updateUnitDisplay = updateUnitDisplay;
                 }
             }, 100);
         }
