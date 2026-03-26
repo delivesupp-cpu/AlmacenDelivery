@@ -8,11 +8,17 @@
     <style>
         .search-box {
             width: 100%;
-            padding: 12px 16px;
+            padding: 14px 18px;
             border: 1px solid #e2e8f0;
-            border-radius: 40px;
-            font-size: 14px;
+            border-radius: 50px;
+            font-size: 16px;
             margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+        .search-box:focus {
+            outline: none;
+            border-color: #94a3b8;
+            box-shadow: 0 0 0 3px rgba(15,23,42,0.05);
         }
         .category-filter {
             display: flex;
@@ -21,7 +27,7 @@
             margin-bottom: 24px;
         }
         .category-btn {
-            padding: 6px 16px;
+            padding: 6px 18px;
             background: #f1f5f9;
             border: none;
             border-radius: 30px;
@@ -33,24 +39,85 @@
             background: #0f172a;
             color: white;
         }
+        .product-card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s;
+        }
+        .product-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .product-title {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        .product-category {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 12px;
+        }
+        .price-list {
+            margin-top: 8px;
+        }
+        .price-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .price-item:last-child {
+            border-bottom: none;
+        }
+        .provider-name {
+            font-weight: 500;
+            font-size: 13px;
+        }
+        .price-value {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 15px;
+        }
+        .best-price-badge {
+            background: #10b981;
+            color: white;
+            font-size: 10px;
+            padding: 2px 8px;
+            border-radius: 20px;
+            margin-left: 8px;
+        }
+        .update-date {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        .search-highlight {
+            background: #fef9c3;
+            padding: 0 2px;
+            border-radius: 4px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #64748b;
+        }
+        .result-count {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 16px;
+        }
     </style>
 </head>
 <body>
-    <div class="main-content">
-        <h1 style="margin-bottom: 8px;">🔍 Comparador de Precios</h1>
-        <p style="color: #64748b; margin-bottom: 24px;">Compará precios entre proveedores</p>
-        
-        <input type="text" id="search" class="search-box" placeholder="Buscar producto o marca...">
-        
-        <div class="category-filter" id="categoryFilter">
-            <button class="category-btn active" data-category="all">Todos</button>
-        </div>
-        
-        <div id="results">
-            <div style="text-align:center; padding:40px; color:#64748b;">Cargando productos...</div>
-        </div>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/js/supabase-client.js"></script>
     <script src="/js/auth.js"></script>
@@ -58,82 +125,193 @@
         let allProducts = [];
         let categories = [];
         let selectedCategory = 'all';
+        let searchTerm = '';
         
         async function loadCategories() {
             const { data } = await window.supabaseClient.from('categories').select('id, name').order('name');
             categories = data || [];
             const filterDiv = document.getElementById('categoryFilter');
-            filterDiv.innerHTML = '<button class="category-btn active" data-category="all" onclick="filterByCategory(\'all\')">Todos</button>' + 
-                categories.map(cat => `<button class="category-btn" data-category="${cat.id}" onclick="filterByCategory(${cat.id})">${cat.name}</button>`).join('');
+            filterDiv.innerHTML = `
+                <button class="category-btn active" data-category="all" onclick="filterByCategory('all')">📦 Todos</button>
+                ${categories.map(cat => `
+                    <button class="category-btn" data-category="${cat.id}" onclick="filterByCategory(${cat.id})">${cat.name}</button>
+                `).join('')}
+            `;
         }
         
         async function loadProducts() {
             const { data } = await window.supabaseClient
                 .from('products')
-                .select(`id, name, brand, unit, category_id, categories(name), prices(price, updated_at, provider_id, providers(name))`)
+                .select(`
+                    id, 
+                    name, 
+                    brand, 
+                    unit_quantity,
+                    unit_type,
+                    unit,
+                    category_id,
+                    categories(name),
+                    prices(
+                        price, 
+                        updated_at, 
+                        provider_id,
+                        providers(name)
+                    )
+                `)
                 .order('name');
+            
             if (data) {
                 allProducts = data;
-                filterProducts();
+                filterAndDisplay();
+            } else {
+                document.getElementById('results').innerHTML = '<div class="no-results">Error al cargar productos</div>';
             }
         }
         
-        function filterProducts() {
+        function filterAndDisplay() {
             let filtered = allProducts;
+            
+            // Filtrar por categoría
             if (selectedCategory !== 'all') {
                 filtered = filtered.filter(p => p.category_id === selectedCategory);
             }
-            const searchTerm = document.getElementById('search').value.toLowerCase();
-            if (searchTerm) {
-                filtered = filtered.filter(p => p.name.toLowerCase().includes(searchTerm) || p.brand.toLowerCase().includes(searchTerm));
+            
+            // Filtrar por búsqueda (mientras escribís)
+            if (searchTerm.trim()) {
+                const term = searchTerm.toLowerCase().trim();
+                filtered = filtered.filter(p => 
+                    p.name.toLowerCase().includes(term) || 
+                    p.brand.toLowerCase().includes(term)
+                );
             }
+            
             displayProducts(filtered);
+            
+            // Actualizar contador
+            const countEl = document.getElementById('resultCount');
+            if (countEl) {
+                countEl.innerHTML = `${filtered.length} producto${filtered.length !== 1 ? 's' : ''} encontrado${filtered.length !== 1 ? 's' : ''}`;
+            }
+        }
+        
+        function highlightText(text, search) {
+            if (!search || !text) return text;
+            const regex = new RegExp(`(${search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            return text.replace(regex, '<span class="search-highlight">$1</span>');
         }
         
         function displayProducts(products) {
             const container = document.getElementById('results');
+            const search = searchTerm.trim().toLowerCase();
+            
             if (products.length === 0) {
-                container.innerHTML = '<div class="card" style="text-align:center;">📭 No se encontraron productos</div>';
+                container.innerHTML = '<div class="no-results">📭 No se encontraron productos</div>';
                 return;
             }
+            
             container.innerHTML = products.map(p => {
                 const prices = p.prices || [];
                 const sortedPrices = [...prices].sort((a,b) => a.price - b.price);
                 const lowestPrice = sortedPrices[0]?.price;
+                
+                // Formatear unidad
+                let unitDisplay = '';
+                if (p.unit_quantity && p.unit_type) {
+                    unitDisplay = `${p.unit_quantity}${p.unit_type}`;
+                } else if (p.unit) {
+                    unitDisplay = p.unit;
+                } else {
+                    unitDisplay = 'unidad';
+                }
+                
+                const highlightedName = search ? highlightText(p.name, search) : p.name;
+                const highlightedBrand = search ? highlightText(p.brand, search) : p.brand;
+                
                 return `
                     <div class="product-card">
-                        <div class="product-title">${p.name} - ${p.brand} <span style="font-size:12px; color:#64748b;">(${p.unit || 'unidad'})</span></div>
-                        <div class="product-category">📂 ${p.categories?.name || 'Sin categoría'}</div>
+                        <div class="product-title">
+                            ${highlightedName} - ${highlightedBrand}
+                            <span style="font-size:12px; color:#64748b; font-weight:normal;"> (${unitDisplay})</span>
+                        </div>
+                        <div class="product-category">
+                            📂 ${p.categories?.name || 'Sin categoría'}
+                        </div>
                         <div class="price-list">
                             ${sortedPrices.map(pr => `
                                 <div class="price-item">
-                                    <span class="provider-name">🏪 ${pr.providers?.name}</span>
+                                    <div>
+                                        <span class="provider-name">🏪 ${pr.providers?.name}</span>
+                                        <div class="update-date">📅 ${new Date(pr.updated_at).toLocaleDateString()}</div>
+                                    </div>
                                     <div>
                                         <span class="price-value">$${pr.price.toFixed(2)}</span>
-                                        ${pr.price === lowestPrice && sortedPrices.length > 1 ? '<span style="background:#10b981; color:white; font-size:10px; padding:2px 6px; border-radius:20px; margin-left:8px;">Mejor</span>' : ''}
-                                        <div style="font-size:10px; color:#94a3b8;">${new Date(pr.updated_at).toLocaleDateString()}</div>
+                                        ${pr.price === lowestPrice && sortedPrices.length > 1 ? '<span class="best-price-badge">Mejor precio</span>' : ''}
                                     </div>
                                 </div>
                             `).join('')}
                         </div>
+                        ${prices.length === 0 ? '<div style="color:#999; text-align:center; padding:10px;">Sin precios cargados</div>' : ''}
                     </div>
                 `;
             }).join('');
         }
         
+        // Filtro por categoría
         function filterByCategory(categoryId) {
             selectedCategory = categoryId;
-            document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-            filterProducts();
+            
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-category') == categoryId) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            filterAndDisplay();
         }
         
-        checkAccess().then(() => {
-            buildMenu();
-            loadCategories();
-            loadProducts();
-        });
-        document.getElementById('search').addEventListener('input', filterProducts);
+        // Búsqueda en tiempo real
+        function onSearchInput() {
+            searchTerm = document.getElementById('searchInput').value;
+            filterAndDisplay();
+        }
+        
+        async function initPage() {
+            await checkAccess();
+            await buildMenu();
+            
+            setTimeout(() => {
+                const mainContent = document.querySelector('.main-content');
+                if (mainContent) {
+                    mainContent.innerHTML = `
+                        <h1 style="margin-bottom: 8px;">🔍 Comparador de Precios</h1>
+                        <p style="color: #64748b; margin-bottom: 24px;">Compará precios entre proveedores</p>
+                        
+                        <input type="text" id="searchInput" class="search-box" placeholder="🔎 Buscar producto o marca... (escribí y filtrá en tiempo real)" autocomplete="off">
+                        
+                        <div class="category-filter" id="categoryFilter">
+                            <button class="category-btn active">Cargando...</button>
+                        </div>
+                        
+                        <div id="resultCount" class="result-count"></div>
+                        <div id="results">
+                            <div class="loading">Cargando productos...</div>
+                        </div>
+                    `;
+                    
+                    // Conectar evento de búsqueda en tiempo real
+                    document.getElementById('searchInput').addEventListener('input', onSearchInput);
+                    
+                    // Cargar datos
+                    loadCategories();
+                    loadProducts();
+                    
+                    window.filterByCategory = filterByCategory;
+                }
+            }, 100);
+        }
+        
+        initPage();
     </script>
 </body>
 </html>
