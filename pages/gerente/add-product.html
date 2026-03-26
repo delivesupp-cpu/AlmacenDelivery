@@ -17,8 +17,37 @@
             background: #f1f5f9;
             border: none;
             border-radius: 30px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .unit-btn:hover {
+            background: #e2e8f0;
+        }
+        .unit-custom {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .unit-custom input {
+            flex: 1;
+        }
+        .unit-preset {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .preset-badge {
+            background: #f1f5f9;
+            padding: 6px 12px;
+            border-radius: 20px;
             font-size: 12px;
             cursor: pointer;
+            transition: all 0.2s;
+        }
+        .preset-badge:hover {
+            background: #e2e8f0;
         }
         .suggestions-list {
             position: absolute;
@@ -29,141 +58,157 @@
             overflow-y: auto;
             width: 100%;
             z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         }
         .suggestion-item {
             padding: 10px 14px;
             cursor: pointer;
             border-bottom: 1px solid #f1f5f9;
         }
-        .suggestion-item:hover { background: #f8fafc; }
-        .relative { position: relative; }
+        .suggestion-item:hover {
+            background: #f8fafc;
+        }
+        .relative {
+            position: relative;
+        }
+        .unit-example {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
-    <div class="main-content">
-        <h1 style="margin-bottom: 8px;">➕ Agregar Producto</h1>
-        <p style="color: #64748b; margin-bottom: 24px;">Cargá nuevos productos al sistema</p>
-        
-        <div class="card">
-            <form id="productForm">
-                <div class="form-group relative">
-                    <label>📦 Producto *</label>
-                    <input type="text" id="productName" placeholder="Ej: Arroz" required autocomplete="off">
-                    <div id="productSuggestions" class="suggestions-list" style="display:none;"></div>
-                </div>
-                
-                <div class="form-group">
-                    <label>🏷️ Marca *</label>
-                    <input type="text" id="brand" placeholder="Ej: Marolio" required>
-                </div>
-                
-                <div class="form-group">
-                    <label>📂 Categoría *</label>
-                    <select id="category" required></select>
-                </div>
-                
-                <div class="form-group">
-                    <label>⚖️ Unidad *</label>
-                    <input type="text" id="unit" placeholder="kg, litros, unidades" required>
-                    <div class="unit-buttons">
-                        <button type="button" class="unit-btn" onclick="setUnit('kg')">kg</button>
-                        <button type="button" class="unit-btn" onclick="setUnit('litros')">litros</button>
-                        <button type="button" class="unit-btn" onclick="setUnit('unidades')">unidades</button>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label>🏪 Proveedor *</label>
-                    <select id="provider" required></select>
-                </div>
-                
-                <div class="form-group">
-                    <label>💰 Precio $ *</label>
-                    <input type="number" id="price" step="0.01" placeholder="0.00" required>
-                    <div id="priceIndicator" class="price-indicator" style="margin-top:8px;"></div>
-                </div>
-                
-                <button type="submit" class="btn btn-primary" style="width:100%;">💾 Guardar Producto</button>
-            </form>
-            <div id="message"></div>
-        </div>
-    </div>
-
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="/js/supabase-client.js"></script>
     <script src="/js/auth.js"></script>
     <script>
         let existingProducts = [];
         
+        // Unidades predefinidas con ejemplos
+        const unitPresets = [
+            { value: "kg", example: "1kg, 500g, 2kg" },
+            { value: "gr", example: "500gr, 1000gr" },
+            { value: "litro", example: "1 litro, 500ml, 1.5L" },
+            { value: "ml", example: "500ml, 1000ml" },
+            { value: "unidad", example: "1 unidad, 6 unidades" },
+            { value: "docena", example: "1 docena, media docena" },
+            { value: "paquete", example: "paquete 500g, paquete x6" },
+            { value: "bolsa", example: "bolsa 1kg, bolsa chica" },
+            { value: "latas", example: "lata 355ml, pack 6 latas" },
+            { value: "botella", example: "botella 1.5L, botella 2L" }
+        ];
+        
         async function loadCategories() {
             const { data } = await window.supabaseClient.from('categories').select('id, name').order('name');
             const select = document.getElementById('category');
-            select.innerHTML = '<option value="">Seleccionar</option>' + data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+            select.innerHTML = '<option value="">Seleccionar categoría</option>' + 
+                data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
         }
         
         async function loadProviders() {
             const { data } = await window.supabaseClient.from('providers').select('id, name').order('name');
             const select = document.getElementById('provider');
-            select.innerHTML = '<option value="">Seleccionar</option>' + data.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+            select.innerHTML = '<option value="">Seleccionar proveedor</option>' + 
+                data.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
         }
         
         async function loadExistingProducts() {
-            const { data } = await window.supabaseClient.from('products').select('name, brand');
+            const { data } = await window.supabaseClient.from('products').select('name, brand, unit');
             existingProducts = data || [];
         }
         
-        function setUnit(unit) { document.getElementById('unit').value = unit; }
+        // Agregar unidad personalizada
+        function addCustomUnit() {
+            const customValue = document.getElementById('customUnit').value.trim();
+            if (customValue) {
+                document.getElementById('unit').value = customValue;
+                document.getElementById('customUnit').value = '';
+            }
+        }
         
+        // Seleccionar unidad predefinida
+        function selectUnit(unit) {
+            document.getElementById('unit').value = unit;
+        }
+        
+        // Sugerir producto
         async function suggestProduct() {
             const productName = document.getElementById('productName').value.toLowerCase();
             if (productName.length < 2) {
                 document.getElementById('productSuggestions').style.display = 'none';
                 return;
             }
-            const matches = existingProducts.filter(p => p.name.toLowerCase().includes(productName)).slice(0, 5);
+            
+            const matches = existingProducts
+                .filter(p => p.name.toLowerCase().includes(productName))
+                .slice(0, 5);
+            
             const suggestionsDiv = document.getElementById('productSuggestions');
             if (matches.length > 0) {
-                suggestionsDiv.innerHTML = matches.map(p => `<div class="suggestion-item" onclick="selectProduct('${p.name}', '${p.brand}')"><strong>${p.name}</strong> - ${p.brand}</div>`).join('');
+                suggestionsDiv.innerHTML = matches.map(p => 
+                    `<div class="suggestion-item" onclick="selectProduct('${p.name}', '${p.brand}', '${p.unit}')">
+                        <strong>${p.name}</strong> - ${p.brand} <span style="color:#64748b; font-size:12px;">(${p.unit})</span>
+                    </div>`
+                ).join('');
                 suggestionsDiv.style.display = 'block';
             } else {
                 suggestionsDiv.style.display = 'none';
             }
         }
         
-        function selectProduct(name, brand) {
+        function selectProduct(name, brand, unit) {
             document.getElementById('productName').value = name;
             document.getElementById('brand').value = brand;
+            if (unit) document.getElementById('unit').value = unit;
             document.getElementById('productSuggestions').style.display = 'none';
-            suggestUnitFromHistory(name, brand);
         }
         
-        async function suggestUnitFromHistory(productName, brand) {
-            const { data } = await window.supabaseClient.from('unit_suggestions').select('suggested_unit').eq('product_name', productName).eq('brand', brand).order('times_used', { ascending: false }).limit(1);
-            if (data && data.length > 0) document.getElementById('unit').value = data[0].suggested_unit;
-        }
-        
+        // Comparar precio
         async function comparePrice() {
             const price = parseFloat(document.getElementById('price').value);
             const productName = document.getElementById('productName').value;
             const brand = document.getElementById('brand').value;
             const providerId = document.getElementById('provider').value;
+            
             if (!productName || !brand || !price || !providerId) return;
-            const { data: product } = await window.supabaseClient.from('products').select('id').eq('name', productName).eq('brand', brand).single();
+            
+            const { data: product } = await window.supabaseClient
+                .from('products')
+                .select('id')
+                .eq('name', productName)
+                .eq('brand', brand)
+                .single();
+            
             if (product) {
-                const { data: prices } = await window.supabaseClient.from('prices').select('price').eq('product_id', product.id).neq('provider_id', providerId);
+                const { data: prices } = await window.supabaseClient
+                    .from('prices')
+                    .select('price')
+                    .eq('product_id', product.id)
+                    .neq('provider_id', providerId);
+                
                 if (prices && prices.length > 0) {
                     const avg = prices.reduce((a,b) => a + b.price, 0) / prices.length;
                     const diff = ((price - avg) / avg) * 100;
                     const indicator = document.getElementById('priceIndicator');
-                    if (diff > 10) indicator.innerHTML = `<div class="price-up">⚠️ ${diff.toFixed(1)}% más caro que el promedio</div>`;
-                    else if (diff < -10) indicator.innerHTML = `<div class="price-down">✓ ${Math.abs(diff).toFixed(1)}% más barato que el promedio</div>`;
-                    else indicator.innerHTML = `<div style="color:#64748b;">ℹ️ Precio dentro del promedio (±${Math.abs(diff).toFixed(1)}%)</div>`;
+                    
+                    if (diff > 10) {
+                        indicator.innerHTML = `<div class="price-up">⚠️ ${diff.toFixed(1)}% más caro que el promedio</div>`;
+                    } else if (diff < -10) {
+                        indicator.innerHTML = `<div class="price-down">✓ ${Math.abs(diff).toFixed(1)}% más barato que el promedio</div>`;
+                    } else {
+                        indicator.innerHTML = `<div style="color:#64748b;">ℹ️ Precio dentro del promedio (±${Math.abs(diff).toFixed(1)}%)</div>`;
+                    }
+                } else {
+                    document.getElementById('priceIndicator').innerHTML = '';
                 }
             }
         }
         
+        // Guardar producto
         async function saveProduct(event) {
             event.preventDefault();
+            
             const productName = document.getElementById('productName').value.trim();
             const brand = document.getElementById('brand').value.trim();
             const categoryId = document.getElementById('category').value;
@@ -171,35 +216,150 @@
             const providerId = document.getElementById('provider').value;
             const price = parseFloat(document.getElementById('price').value);
             const userId = localStorage.getItem('userId');
+            
             if (!productName || !brand || !categoryId || !unit || !providerId || !price) {
-                document.getElementById('message').innerHTML = '<div class="error-msg">Completa todos los campos</div>';
+                document.getElementById('message').innerHTML = '<div class="error-msg">❌ Completa todos los campos</div>';
                 return;
             }
+            
             let productId;
-            let { data: product } = await window.supabaseClient.from('products').select('id').eq('name', productName).eq('brand', brand).single();
+            let { data: product } = await window.supabaseClient
+                .from('products')
+                .select('id')
+                .eq('name', productName)
+                .eq('brand', brand)
+                .single();
+            
             if (!product) {
-                const { data: newProduct } = await window.supabaseClient.from('products').insert({ name: productName, brand: brand, category_id: categoryId, unit: unit }).select().single();
-                if (!newProduct) return;
+                const { data: newProduct, error: insertError } = await window.supabaseClient
+                    .from('products')
+                    .insert({ name: productName, brand: brand, category_id: categoryId, unit: unit })
+                    .select()
+                    .single();
+                
+                if (insertError) {
+                    document.getElementById('message').innerHTML = `<div class="error-msg">❌ Error: ${insertError.message}</div>`;
+                    return;
+                }
                 productId = newProduct.id;
-                await window.supabaseClient.from('unit_suggestions').upsert({ product_name: productName, brand: brand, suggested_unit: unit, times_used: 1 }, { onConflict: 'product_name,brand' });
+                
+                // Guardar sugerencia de unidad
+                await window.supabaseClient
+                    .from('unit_suggestions')
+                    .upsert({
+                        product_name: productName,
+                        brand: brand,
+                        suggested_unit: unit,
+                        times_used: 1
+                    }, { onConflict: 'product_name,brand' });
             } else {
                 productId = product.id;
             }
-            const { error } = await window.supabaseClient.from('prices').insert({ product_id: productId, provider_id: providerId, price: price, updated_by: userId });
-            if (!error) {
-                document.getElementById('message').innerHTML = '<div class="success">✓ Producto guardado</div>';
+            
+            const { error: priceError } = await window.supabaseClient
+                .from('prices')
+                .insert({
+                    product_id: productId,
+                    provider_id: providerId,
+                    price: price,
+                    updated_by: userId
+                });
+            
+            if (!priceError) {
+                document.getElementById('message').innerHTML = '<div class="success">✓ Producto guardado correctamente</div>';
                 document.getElementById('productForm').reset();
+                document.getElementById('unit').value = '';
+                document.getElementById('customUnit').value = '';
                 setTimeout(() => document.getElementById('message').innerHTML = '', 3000);
                 loadExistingProducts();
+            } else {
+                document.getElementById('message').innerHTML = `<div class="error-msg">❌ Error: ${priceError.message}</div>`;
             }
         }
         
-        document.getElementById('productName').addEventListener('input', suggestProduct);
-        document.getElementById('price').addEventListener('input', comparePrice);
-        document.getElementById('provider').addEventListener('change', comparePrice);
-        document.getElementById('productForm').addEventListener('submit', saveProduct);
+        // Inicializar página
+        async function initPage() {
+            await checkAccess();
+            await buildMenu();
+            
+            setTimeout(() => {
+                const mainContent = document.querySelector('.main-content');
+                if (mainContent) {
+                    mainContent.innerHTML = `
+                        <h1 style="margin-bottom: 8px;">➕ Agregar Producto</h1>
+                        <p style="color: #64748b; margin-bottom: 24px;">Cargá nuevos productos al sistema</p>
+                        
+                        <div class="card">
+                            <form id="productForm">
+                                <div class="form-group relative">
+                                    <label>📦 Producto *</label>
+                                    <input type="text" id="productName" placeholder="Ej: Arroz" required autocomplete="off">
+                                    <div id="productSuggestions" class="suggestions-list" style="display:none;"></div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>🏷️ Marca *</label>
+                                    <input type="text" id="brand" placeholder="Ej: Marolio" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>📂 Categoría *</label>
+                                    <select id="category" required></select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>⚖️ Unidad de medida *</label>
+                                    <input type="text" id="unit" placeholder="Ej: kg, 500gr, litro, unidad, paquete x6" required>
+                                    <div class="unit-example">💡 Ejemplos: kg, 500gr, 1.5 litros, unidad, paquete x6, docena</div>
+                                    
+                                    <div class="unit-preset">
+                                        ${unitPresets.map(p => `
+                                            <div class="preset-badge" onclick="selectUnit('${p.value}')" title="${p.example}">${p.value}</div>
+                                        `).join('')}
+                                    </div>
+                                    
+                                    <div class="unit-custom">
+                                        <input type="text" id="customUnit" placeholder="Escribí tu unidad personalizada...">
+                                        <button type="button" class="btn btn-outline" onclick="addCustomUnit()" style="padding:10px 16px;">Usar</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>🏪 Proveedor *</label>
+                                    <select id="provider" required></select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>💰 Precio $ *</label>
+                                    <input type="number" id="price" step="0.01" placeholder="0.00" required>
+                                    <div id="priceIndicator" style="margin-top:8px;"></div>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary" style="width:100%;">💾 Guardar Producto</button>
+                            </form>
+                            <div id="message"></div>
+                        </div>
+                    `;
+                    
+                    // Conectar eventos
+                    document.getElementById('productName').addEventListener('input', suggestProduct);
+                    document.getElementById('price').addEventListener('input', comparePrice);
+                    document.getElementById('provider').addEventListener('change', comparePrice);
+                    document.getElementById('productForm').addEventListener('submit', saveProduct);
+                    
+                    // Cargar datos
+                    loadCategories();
+                    loadProviders();
+                    loadExistingProducts();
+                    
+                    // Exponer funciones globales para los botones
+                    window.selectUnit = selectUnit;
+                    window.addCustomUnit = addCustomUnit;
+                }
+            }, 100);
+        }
         
-        checkAccess().then(() => { buildMenu(); loadCategories(); loadProviders(); loadExistingProducts(); });
+        initPage();
     </script>
 </body>
 </html>
